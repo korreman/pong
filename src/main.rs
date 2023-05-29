@@ -49,9 +49,11 @@ enum SubCmd {
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
         /// Don't ignore packages that are already installed.
+        #[arg(long)]
         reinstall: bool,
         /// Retrieve packages from the server,
         /// but do not install/upgrade anything.
+        #[arg(long)]
         download: bool,
     },
 
@@ -204,6 +206,27 @@ impl SubCmd {
                 reverse,
             } => {
                 cmd = vec!["pactree".to_owned()];
+                if global.verbose {
+                    cmd.push("--debug".to_owned());
+                }
+                if let Some(config) = &global.config {
+                    cmd.push(format!(
+                        "--config {}",
+                        config.to_str().expect("non-unicode isn't supported (yet?)")
+                    ));
+                }
+                if let Some(dbpath) = &global.dbpath {
+                    cmd.push(format!(
+                        "--dbpath {}",
+                        dbpath.to_str().expect("non-unicode isn't supported (yet?)")
+                    ));
+                }
+                if let Some(gpgdir) = &global.gpgdir {
+                    cmd.push(format!(
+                        "--gpgdir {}",
+                        gpgdir.to_str().expect("non-unicode isn't supported (yet?)")
+                    ));
+                }
                 let mut cmd_arg = String::from("-");
                 if ascii {
                     cmd_arg.push('a');
@@ -213,7 +236,6 @@ impl SubCmd {
                 if color {
                     cmd_arg.push('c');
                 }
-                // TODO: More global configuration options.
                 if reverse {
                     cmd_arg.push('r');
                 }
@@ -221,14 +243,11 @@ impl SubCmd {
                     cmd.push("-d".to_owned());
                     cmd.push(format!("{d}"));
                 }
-                if let Some(dopt) = depth_optional {
-                    cmd.push(format!("--optional={dopt}"));
-                }
-                if global.verbose {
-                    cmd.push("--debug".to_owned());
-                }
                 if cmd_arg != "-" {
                     cmd.push(cmd_arg);
+                }
+                if let Some(dopt) = depth_optional {
+                    cmd.push(format!("--optional={dopt}"));
                 }
                 cmd.push(package);
                 cmd
