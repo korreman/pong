@@ -4,11 +4,14 @@ use std::process::{Command, ExitCode};
 
 use clap::{Args, ColorChoice, Parser, Subcommand};
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Debug, Clone, Parser)]
 #[command(author, version, about)]
 struct Cmd {
     /// Print the corresponding command to stdout instead of running it.
-    #[arg(long)]
+    #[arg(short, long)]
     generate_command: bool,
     #[command(flatten)]
     opts: GlobalOpts,
@@ -21,23 +24,18 @@ struct GlobalOpts {
     /// Display debug messages.
     #[arg(short, long)]
     verbose: bool,
-
     /// Simulate a test run without performing any changes.
     #[arg(long)]
     simulate: bool,
-
     /// Specify when to colorize output.
     #[arg(short, long, value_enum, default_value_t = ColorChoice::Auto)]
     color: ColorChoice,
-
     /// Specify an alternate configuration file.
     #[arg(long, value_name = "FILE")]
     config: Option<PathBuf>,
-
     /// Specify an alternate database location.
     #[arg(long, value_name = "DIR")]
     dbpath: Option<PathBuf>,
-
     /// Specify an alternate directory for GnuPG.
     #[arg(long, value_name = "DIR")]
     gpgdir: Option<PathBuf>,
@@ -50,6 +48,11 @@ enum SubCmd {
         /// Packages to install/reinstall.
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
+        /// Don't ignore packages that are already installed.
+        reinstall: bool,
+        /// Retrieve packages from the server,
+        /// but do not install/upgrade anything.
+        download: bool,
     },
 
     /// Remove packages.
@@ -71,19 +74,8 @@ enum SubCmd {
     /// Update the remote registry and upgrade packages.
     Upgrade,
 
-    /// Search for a package.
-    Search {
-        /// Query strings to search for, regexes used for matching.
-        #[arg(value_name = "QUERY")]
-        queries: Vec<String>,
-    },
-
-    /// Print info on packages.
-    Info {
-        /// Packages to display info on.
-        #[arg(value_name = "PACKAGE")]
-        packages: Vec<String>,
-    },
+    /// Clean the package caches.
+    Clean,
 
     /// Mark packages as directly installed. (TODO: better description)
     Pin {
@@ -95,6 +87,20 @@ enum SubCmd {
     /// Unmark packages as directly installed. (TODO: better description)
     Unpin {
         /// Packages to unpin.
+        #[arg(value_name = "PACKAGE")]
+        packages: Vec<String>,
+    },
+
+    /// Search for a package.
+    Search {
+        /// Query strings to search for, regexes used for matching.
+        #[arg(value_name = "QUERY")]
+        queries: Vec<String>,
+    },
+
+    /// Print info on packages.
+    Info {
+        /// Packages to display info on.
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
     },
@@ -130,8 +136,19 @@ impl SubCmd {
         cmd.push("--color".to_owned());
         cmd.push(global.color.to_string());
         match self {
-            SubCmd::Install { packages } => {
-                cmd.push("-S".to_owned());
+            SubCmd::Install {
+                packages,
+                reinstall,
+                download,
+            } => {
+                let mut arg = String::from("-S");
+                if download {
+                    arg.push('w');
+                }
+                cmd.push(arg);
+                if !reinstall {
+                    cmd.push("--needed".to_owned());
+                }
                 [cmd, packages].concat()
             }
             SubCmd::Remove {
@@ -140,30 +157,26 @@ impl SubCmd {
                 keep_orphans,
                 uproot,
             } => {
-                let mut cmd_arg = String::from("-R");
+                let mut arg = String::from("-R");
                 if !keep_orphans {
-                    cmd_arg.push('s');
+                    arg.push('s');
                 }
                 if !keep_configs {
-                    cmd_arg.push('n');
+                    arg.push('n');
                 }
                 if uproot {
-                    cmd_arg.push('c');
+                    arg.push('c');
                 }
-                cmd.push(cmd_arg);
+                cmd.push(arg);
                 [cmd, packages].concat()
             }
             SubCmd::Upgrade => {
                 cmd.push("-Syu".to_owned());
                 cmd
             }
-            SubCmd::Search { queries } => {
-                cmd.push("-Ss".to_owned());
-                [cmd, queries].concat()
-            }
-            SubCmd::Info { packages } => {
-                cmd.push("-Si".to_owned());
-                [cmd, packages].concat()
+            SubCmd::Clean => {
+                cmd.push("-Sc".to_owned());
+                cmd
             }
             SubCmd::Pin { packages } => {
                 cmd.push("-D".to_owned());
@@ -173,6 +186,14 @@ impl SubCmd {
             SubCmd::Unpin { packages } => {
                 cmd.push("-S".to_owned());
                 cmd.push("--asdeps".to_owned());
+                [cmd, packages].concat()
+            }
+            SubCmd::Search { queries } => {
+                cmd.push("-Ss".to_owned());
+                [cmd, queries].concat()
+            }
+            SubCmd::Info { packages } => {
+                cmd.push("-Si".to_owned());
                 [cmd, packages].concat()
             }
             SubCmd::Tree {
