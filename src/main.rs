@@ -117,14 +117,14 @@ enum SubCmd {
     },
 
     /// Search for a package.
-    Search {
+    List {
         /// Query strings to search for, regexes used for matching.
         #[arg(value_name = "QUERY")]
         queries: Vec<String>,
     },
 
     /// Print info on packages.
-    Info {
+    Show {
         /// Packages to display info on.
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
@@ -234,11 +234,11 @@ impl SubCmd {
                 cmd.push(arg.to_owned());
                 [cmd, packages].concat()
             }
-            SubCmd::Search { queries } => {
+            SubCmd::List { queries } => {
                 cmd.push("-Ss".to_owned());
                 [cmd, queries].concat()
             }
-            SubCmd::Info { packages } => {
+            SubCmd::Show { packages } => {
                 cmd.push("-Si".to_owned());
                 [cmd, packages].concat()
             }
