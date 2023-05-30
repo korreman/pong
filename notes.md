@@ -1,43 +1,16 @@
 How would the better pacman CLI look?
 
-pong upgrade
-pong search PACKAGE
-pong install PACKAGE
-pong remove PACKAGE
-pong clean
-pong tree
-pong list PACKAGE
-pong build PKGBUILD
+    pong upgrade
+    pong search PACKAGE
+    pong install PACKAGE
+    pong remove PACKAGE
+    pong clean
+    pong tree
+    pong list PACKAGE
+    pong build PKGBUILD
 
 -----
-Okay, let's be systematic about this.
 
-A package manager is a multitool that performs
-an array of operations related to building, bundling, distributing, and installing software.
-It's primary function is to allow users
-to easily install a variety of software from a collection of remote repositories.
-
-Software is bundled in "packages".
-A package on its own is a collection of files and an installation script.
-However, it should also be tagged with a list of dependencies (some optional),
-other packages that need to be installed first in order for this one to be installed correctly.
-Installing a package is performed by copying the files to the respective locations
-and performing any additional steps laid out by the install script.
-
-In a private storage, a package manager holds a local copy of the package registry.
-This is the one that the user is querying when searching for packages to install.
-Then, when told to install a package, it is looked up in the registry,
-and all dependencies are installed before it.
-When a package is installed,
-it is downloaded and cached from a remote location specified in the registry.
-
-To upgrade the registry, all packages must also be upgraded in turn.
-This is all done by a single upgrade command.
-So in short, the registry is replaced by an updated copy,
-and all installed packages are reinstalled if necessary.
-Since Arch is rolling release, all packages _must_ be updated.
-
------
 Subdivision of tasks
 
 - Modify
@@ -79,6 +52,7 @@ Subdivision of tasks
 - Build
 
 -----
+
 What are some common operations that I have trouble performing?
 
 - List the packages that provide binary X
