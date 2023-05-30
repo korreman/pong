@@ -16,7 +16,11 @@ even after using them once.
 2. Discoverability.
 It should be easy to find the functionality you are looking for,
 and to discover new functionality that you haven't considered.
-3. Anti-inconvenience.
+3. Good defaults.
+The correct, preferred, or common ways of using the tool shouldn't require any configuration.
+4. Safety.
+It should be difficult to accidentally perform unsafe actions.
+5. Anti-inconvenience.
 Convenience and simplicity are vague goals
 that often leads us to ignore latent and/or inherent complexity.
 I prefer the weaker goals of not inconveniencing the user
