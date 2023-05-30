@@ -27,7 +27,7 @@ struct GlobalOpts {
     #[arg(short, long)]
     verbose: bool,
     /// Simulate a test run without performing any changes.
-    #[arg(long)]
+    #[arg(short, long)]
     simulate: bool,
     /// Specify when to colorize output.
     #[arg(short, long, value_enum, default_value_t = ColorChoice::Auto)]
@@ -45,12 +45,15 @@ struct GlobalOpts {
 
 #[derive(Debug, Clone, Subcommand)]
 enum SubCmd {
-    /// Install or reinstall packages.
+    /// Install/reinstall packages.
+    ///
+    /// Install the specified packages and all of their required dependencies.
+    #[command(alias = "i")]
     Install {
         /// Packages to install/reinstall.
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
-        /// Don't ignore packages that are already installed.
+        /// Reinstall packages that are already installed.
         #[arg(long)]
         reinstall: bool,
         /// Retrieve packages from the server,
@@ -60,22 +63,27 @@ enum SubCmd {
     },
 
     /// Remove packages.
+    ///
+    /// Remove all specified packages and recursively remove all orphaned dependencies.
+    /// If a packaged is depended on by
+    #[command(alias = "r")]
     Remove {
         /// Packages to remove.
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
-        /// Do not remove config files.
-        #[arg(long)]
-        keep_configs: bool,
-        /// Do not remove orphaned dependencies.
-        #[arg(long)]
-        keep_orphans: bool,
         /// Recursively remove all packages that depend on those specified for removal.
         #[arg(short, long)]
         uproot: bool,
+        /// Do not remove orphaned dependencies.
+        #[arg(short = 'o', long)]
+        keep_orphans: bool,
+        /// Remove configuration files as well.
+        #[arg(short = 'c', long)]
+        keep_configs: bool,
     },
 
     /// Update the package database and upgrade packages.
+    #[command(alias = "u")]
     Upgrade {
         /// Do not update the package database.
         #[arg(long)]
@@ -93,6 +101,7 @@ enum SubCmd {
     ///
     /// Remove packages that are no longer installed from the cache
     /// as well as unused sync databases.
+    #[command(alias = "c")]
     Clean {
         /// Remove all packages from the cache,
         /// including ones that are currently installed.
@@ -100,13 +109,14 @@ enum SubCmd {
         all: bool,
     },
 
-    /// Mark packages as explicitly installed, avoiding implicit removal.
+    /// Mark packages as explicitly installed, avoiding indirect removal.
     ///
     /// Installed packages are marked with an install reason,
     /// that being either 'explicitly installed' or as 'installed as dependency'.
     /// Dependencies are generally removed along with the last package that depends on them.
     /// By changing the install reason to 'explicit',
     /// packages are pinned in place and avoid being removed indirectly.
+    #[command(alias = "p")]
     Pin {
         /// Packages to mark.
         #[arg(value_name = "PACKAGE")]
@@ -117,20 +127,23 @@ enum SubCmd {
     },
 
     /// Search for a package.
-    List {
+    #[command(alias = "s")]
+    Search {
         /// Query strings to search for, regexes used for matching.
         #[arg(value_name = "QUERY")]
         queries: Vec<String>,
     },
 
     /// Print info on packages.
-    Show {
+    #[command(alias = "d", visible_alias = "info")]
+    Desc {
         /// Packages to display info on.
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
     },
 
     /// Print the dependency tree of a package.
+    #[command(alias = "t")]
     Tree {
         /// The package to print a dependency tree for.
         package: String,
@@ -234,11 +247,11 @@ impl SubCmd {
                 cmd.push(arg.to_owned());
                 [cmd, packages].concat()
             }
-            SubCmd::List { queries } => {
+            SubCmd::Search { queries } => {
                 cmd.push("-Ss".to_owned());
                 [cmd, queries].concat()
             }
-            SubCmd::Show { packages } => {
+            SubCmd::Desc { packages } => {
                 cmd.push("-Si".to_owned());
                 [cmd, packages].concat()
             }
