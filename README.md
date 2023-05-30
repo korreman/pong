@@ -12,19 +12,19 @@ The goals for this wrapper are:
 
 1. Memorability.
 It should be easy to commit commands and options to memory,
-even after using them once.
+even after using them only once.
 2. Discoverability.
-It should be easy to find the functionality you are looking for,
-and to discover new functionality that you haven't considered.
+It should be easy to find the functionality you are looking for
+and to discover new functionality that you didn't know about.
 3. Good defaults.
 The correct, preferred, or common ways of using the tool shouldn't require any configuration.
 4. Safety.
 It should be difficult to accidentally perform unsafe actions.
 5. Anti-inconvenience.
-Convenience and simplicity are vague goals
-that often leads us to ignore latent and/or inherent complexity.
-I prefer the weaker goals of not inconveniencing the user
-and not introducing _unnecessary_ complexity.
+The tool should feel convenient,
+but not at the cost of other goals.
+Hence, it's more about it not being inconvenient to use.
+
 
 ## Dependencies
 
