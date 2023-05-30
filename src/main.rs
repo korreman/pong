@@ -13,8 +13,10 @@ struct Cmd {
     /// Print the corresponding command to stdout instead of running it.
     #[arg(short, long)]
     generate_command: bool,
+
     #[command(flatten)]
     opts: GlobalOpts,
+
     #[command(subcommand)]
     sub: SubCmd,
 }
@@ -73,8 +75,19 @@ enum SubCmd {
         uproot: bool,
     },
 
-    /// Update the remote registry and upgrade packages.
-    Upgrade,
+    /// Update the package database and upgrade packages.
+    Upgrade {
+        /// Do not update the package database.
+        #[arg(long)]
+        no_sync: bool,
+        /// Do not upgrade any packages.
+        #[arg(long)]
+        only_sync: bool,
+        /// Retrieve packages from the server,
+        /// but do not install/upgrade anything.
+        #[arg(long)]
+        download: bool,
+    },
 
     /// Clean the package caches.
     ///
@@ -182,8 +195,26 @@ impl SubCmd {
                 cmd.push(arg);
                 [cmd, packages].concat()
             }
-            SubCmd::Upgrade => {
-                cmd.push("-Syu".to_owned());
+            SubCmd::Upgrade {
+                download,
+                no_sync,
+                only_sync: no_upgrade,
+            } => {
+                if no_sync && no_upgrade {
+                    eprintln!("either the package database must be updated or the packages upgraded for this command to have any effect");
+                    std::process::exit(-1);
+                }
+                let mut arg = String::from("-S");
+                if download {
+                    arg.push('w');
+                }
+                if !no_sync {
+                    arg.push('y');
+                }
+                if !no_upgrade {
+                    arg.push('u');
+                }
+                cmd.push(arg);
                 cmd
             }
             SubCmd::Clean { all } => {
