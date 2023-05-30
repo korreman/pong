@@ -21,3 +21,7 @@ Convenience and simplicity are vague goals
 that often leads us to ignore latent and/or inherent complexity.
 I prefer the weaker goals of not inconveniencing the user
 and not introducing _unnecessary_ complexity.
+
+## Dependencies
+
+The only current dependencies are the packages `pacman` and `pacman-contrib`.
