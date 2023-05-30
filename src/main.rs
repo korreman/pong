@@ -77,20 +77,30 @@ enum SubCmd {
     Upgrade,
 
     /// Clean the package caches.
-    Clean,
-
-    /// Mark packages as directly installed. (TODO: better description)
-    Pin {
-        /// Packages to pin.
-        #[arg(value_name = "PACKAGE")]
-        packages: Vec<String>,
+    ///
+    /// Remove packages that are no longer installed from the cache
+    /// as well as unused sync databases.
+    Clean {
+        /// Remove all packages from the cache,
+        /// including ones that are currently installed.
+        #[arg(long)]
+        all: bool,
     },
 
-    /// Unmark packages as directly installed. (TODO: better description)
-    Unpin {
-        /// Packages to unpin.
+    /// Mark packages as explicitly installed, avoiding implicit removal.
+    ///
+    /// Installed packages are marked with an install reason,
+    /// that being either 'explicitly installed' or as 'installed as dependency'.
+    /// Dependencies are generally removed along with the last package that depends on them.
+    /// By changing the install reason to 'explicit',
+    /// packages are pinned in place and avoid being removed indirectly.
+    Pin {
+        /// Packages to mark.
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
+        /// Mark the packages as dependencies instead, allowing implicit removal.
+        #[arg(short, long)]
+        unpin: bool,
     },
 
     /// Search for a package.
@@ -176,18 +186,21 @@ impl SubCmd {
                 cmd.push("-Syu".to_owned());
                 cmd
             }
-            SubCmd::Clean => {
-                cmd.push("-Sc".to_owned());
+            SubCmd::Clean { all } => {
+                let arg = if all { "-Scc" } else { "-Sc" };
+                cmd.push(arg.to_owned());
                 cmd
             }
-            SubCmd::Pin { packages } => {
+            SubCmd::Pin {
+                packages,
+                unpin: dependency,
+            } => {
                 cmd.push("-D".to_owned());
-                cmd.push("--asexplicit".to_owned());
-                [cmd, packages].concat()
-            }
-            SubCmd::Unpin { packages } => {
-                cmd.push("-S".to_owned());
-                cmd.push("--asdeps".to_owned());
+                let arg = match dependency {
+                    true => "--asdeps",
+                    false => "--asexplicit",
+                };
+                cmd.push(arg.to_owned());
                 [cmd, packages].concat()
             }
             SubCmd::Search { queries } => {
