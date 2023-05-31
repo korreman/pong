@@ -106,27 +106,6 @@ enum SubCmd {
         all: bool,
     },
 
-    /// Mark packages as explicitly installed, preventing indirect removal.
-    ///
-    /// Installed packages are marked with an install reason,
-    /// that being either 'explicitly installed' or 'installed as dependency'.
-    /// Dependencies are generally removed along with the last package that depends on them.
-    /// By changing the install reason to 'explicit',
-    /// packages are pinned in place and avoid being removed indirectly.
-    #[command(alias = "p")]
-    Pin {
-        /// Packages to mark.
-        #[arg(value_name = "PACKAGE")]
-        packages: Vec<String>,
-        /// Mark the packages as dependencies instead.
-        #[arg(
-            short,
-            long,
-            long_help = "Mark the packages as dependencies instead, allowing indirect removal."
-        )]
-        unpin: bool,
-    },
-
     // TODO: Expand this command by *a lot*.
     /// Search for a package.
     #[command(alias = "s")]
@@ -166,6 +145,26 @@ enum SubCmd {
         #[arg(short, long)]
         reverse: bool,
     },
+
+    /// Mark packages as explicitly installed.
+    ///
+    /// By changing the install reason for a package to 'explicit',
+    /// packages that were originally installed as dependencies
+    /// can avoid being orphaned and removed indirectly.
+    #[command(alias = "p")]
+    Pin {
+        /// Packages to mark.
+        #[arg(value_name = "PACKAGE")]
+        packages: Vec<String>,
+        /// Mark the packages as dependencies instead.
+        #[arg(
+            short,
+            long,
+            long_help = "Mark the packages as dependencies instead, allowing indirect removal."
+        )]
+        unpin: bool,
+    },
+
 }
 
 impl SubCmd {
