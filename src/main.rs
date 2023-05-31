@@ -217,7 +217,7 @@ impl SubCmd {
                 refresh,
             } => {
                 if no_refresh && refresh {
-                    eprintln!("either the package database must be updated or the packages upgraded for this command to have any effect");
+                    eprintln!("incompatible options: '--refresh' and '--no-refresh'");
                     std::process::exit(-1);
                 }
                 let mut arg = String::from("-S");
