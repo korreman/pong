@@ -25,7 +25,7 @@ struct Cmd {
 struct GlobalOpts {
     /// Display debug messages.
     #[arg(short, long)]
-    verbose: bool,
+    debug: bool,
     /// Simulate a test run without performing any changes.
     #[arg(short, long)]
     simulate: bool,
@@ -108,19 +108,38 @@ enum SubCmd {
 
     // TODO: Expand this command by *a lot*.
     /// Search for a package.
-    #[command(alias = "s")]
+    #[command(aliases = ["s", "l"], visible_alias = "list")]
     Search {
         /// Query regexes to search for.
         #[arg(value_name = "QUERY")]
         queries: Vec<String>,
     },
 
-    /// Print information about packages.
-    #[command(alias = "d", visible_alias = "info")]
-    Desc {
+    /// Display various information about packages.
+    #[command(alias = "v")]
+    View {
         /// Packages to display information about.
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
+        /// Print information on locally installed packages.
+        #[arg(short, long)]
+        local: bool,
+        /// package files instead of a database entries.
+        #[arg(short, long)]
+        file: bool,
+        /// Print more information.
+        ///
+        /// This includes:
+        /// - Packages that require the named packages.
+        /// - Backup files and their modification states.
+        #[arg(short, long)]
+        more: bool,
+        /// Print the ChangeLog of a package if it exists.
+        #[arg(short, long)]
+        changelog: bool,
+        /// List the files that a package provides.
+        #[arg(short, long)]
+        provides: bool,
     },
 
     /// Show the dependency tree of a package.
@@ -164,7 +183,11 @@ enum SubCmd {
         )]
         unpin: bool,
     },
+}
 
+fn quit(e: impl AsRef<str>) -> ! {
+    eprintln!("{}", e.as_ref());
+    std::process::exit(1)
 }
 
 impl SubCmd {
@@ -175,13 +198,20 @@ impl SubCmd {
         if global.simulate {
             cmd.push("--print".to_owned());
         };
-        if global.verbose {
+        if global.debug {
             cmd.push("--debug".to_owned());
         }
         if let Some(color) = global.color {
             cmd.push("--color".to_owned());
             cmd.push(color.to_string());
         }
+
+        let incompatible = |(a, a_str): (bool, &str), (b, b_str): (bool, &str)| {
+            if a && b {
+                quit(format!("incompatible options: '--{a_str}' and '--{b_str}'"));
+            }
+        };
+
         match self {
             SubCmd::Install {
                 packages,
@@ -222,10 +252,8 @@ impl SubCmd {
                 no_refresh,
                 refresh,
             } => {
-                if no_refresh && refresh {
-                    eprintln!("incompatible options: '--refresh' and '--no-refresh'");
-                    std::process::exit(-1);
-                }
+                incompatible((refresh, "refresh"), (no_refresh, "no-refresh"));
+
                 let mut arg = String::from("-S");
                 if download {
                     arg.push('w');
@@ -257,8 +285,38 @@ impl SubCmd {
                 cmd.push("-Ss".to_owned());
                 ([cmd, queries].concat(), false)
             }
-            SubCmd::Desc { packages } => {
-                cmd.push("-Si".to_owned());
+            SubCmd::View {
+                packages,
+                mut local,
+                file,
+                changelog,
+                provides,
+                more,
+            } => {
+                incompatible((changelog, "changelog"), (provides, "provides"));
+                incompatible((changelog, "changelog"), (more, "more"));
+                incompatible((provides, "provides"), (more, "more"));
+
+                local |= file || changelog;
+                let mut arg = match local {
+                    true => String::from("-Q"),
+                    false => String::from("-S"),
+                };
+
+                if file {
+                    arg.push('p');
+                }
+                if changelog {
+                    arg.push('c');
+                } else if provides {
+                    arg.push('l');
+                } else {
+                    arg.push('i');
+                }
+                if more {
+                    arg.push('i');
+                }
+                cmd.push(arg);
                 ([cmd, packages].concat(), false)
             }
             SubCmd::Tree {
@@ -269,7 +327,7 @@ impl SubCmd {
                 reverse,
             } => {
                 cmd = vec!["pactree".to_owned()];
-                if global.verbose {
+                if global.debug {
                     cmd.push("--debug".to_owned());
                 }
                 if let Some(config) = &global.config {
