@@ -54,11 +54,11 @@ enum SubCmd {
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
         /// Reinstall packages that are already installed.
-        #[arg(long)]
+        #[arg(short, long)]
         reinstall: bool,
         /// Retrieve packages from the server,
         /// but do not install/upgrade anything.
-        #[arg(long)]
+        #[arg(short, long)]
         download: bool,
     },
 
@@ -85,15 +85,14 @@ enum SubCmd {
     /// Update the package database and upgrade packages.
     #[command(alias = "u")]
     Upgrade {
-        /// Do not update the package database.
-        #[arg(long)]
-        no_sync: bool,
-        /// Do not upgrade any packages.
-        #[arg(long)]
-        only_sync: bool,
-        /// Retrieve packages from the server,
-        /// but do not install/upgrade anything.
-        #[arg(long)]
+        /// Only upgrade packages, do not refresh the package database.
+        #[arg(short, long)]
+        no_refresh: bool,
+        /// Only refresh the package database, do not upgrade any packages.
+        #[arg(short, long)]
+        refresh: bool,
+        /// Retrieve packages from the server, but do not perform upgrades.
+        #[arg(short, long)]
         download: bool,
     },
 
@@ -105,7 +104,7 @@ enum SubCmd {
     Clean {
         /// Remove all packages from the cache,
         /// including ones that are currently installed.
-        #[arg(long)]
+        #[arg(short, long)]
         all: bool,
     },
 
@@ -153,8 +152,8 @@ enum SubCmd {
         /// Limit the depth of recursion.
         #[arg(short, long, value_name = "NUMBER")]
         depth: Option<u32>,
-        /// Limit depth of optional.
-        #[arg(long, value_name = "NUMBER")]
+        /// Limit recursion depth for optional dependencies.
+        #[arg(short = 'o', long, value_name = "NUMBER")]
         depth_optional: Option<u32>,
         /// List package dependants instead of dependencies.
         #[arg(short, long)]
@@ -163,7 +162,9 @@ enum SubCmd {
 }
 
 impl SubCmd {
-    fn generate_command(self, global: &GlobalOpts) -> Vec<String> {
+    /// Generate the corresponding underlying command,
+    /// and tell whether root user privileges are needed to run it.
+    fn generate_command(self, global: &GlobalOpts) -> (Vec<String>, bool) {
         let mut cmd = vec!["pacman".to_owned()];
         if global.simulate {
             cmd.push("--print".to_owned());
@@ -189,7 +190,7 @@ impl SubCmd {
                 if !reinstall {
                     cmd.push("--needed".to_owned());
                 }
-                [cmd, packages].concat()
+                ([cmd, packages].concat(), true)
             }
             SubCmd::Remove {
                 packages,
@@ -208,14 +209,14 @@ impl SubCmd {
                     arg.push('c');
                 }
                 cmd.push(arg);
-                [cmd, packages].concat()
+                ([cmd, packages].concat(), true)
             }
             SubCmd::Upgrade {
                 download,
-                no_sync,
-                only_sync,
+                no_refresh,
+                refresh,
             } => {
-                if no_sync && only_sync {
+                if no_refresh && refresh {
                     eprintln!("either the package database must be updated or the packages upgraded for this command to have any effect");
                     std::process::exit(-1);
                 }
@@ -223,19 +224,19 @@ impl SubCmd {
                 if download {
                     arg.push('w');
                 }
-                if !no_sync {
+                if !no_refresh {
                     arg.push('y');
                 }
-                if !only_sync {
+                if !refresh {
                     arg.push('u');
                 }
                 cmd.push(arg);
-                cmd
+                (cmd, true)
             }
             SubCmd::Clean { all } => {
                 let arg = if all { "-Scc" } else { "-Sc" };
                 cmd.push(arg.to_owned());
-                cmd
+                (cmd, true)
             }
             SubCmd::Pin { packages, unpin } => {
                 cmd.push("-D".to_owned());
@@ -244,15 +245,15 @@ impl SubCmd {
                     false => "--asexplicit",
                 };
                 cmd.push(arg.to_owned());
-                [cmd, packages].concat()
+                ([cmd, packages].concat(), true)
             }
             SubCmd::Search { queries } => {
                 cmd.push("-Ss".to_owned());
-                [cmd, queries].concat()
+                ([cmd, queries].concat(), false)
             }
             SubCmd::Desc { packages } => {
                 cmd.push("-Si".to_owned());
-                [cmd, packages].concat()
+                ([cmd, packages].concat(), false)
             }
             SubCmd::Tree {
                 package,
@@ -307,7 +308,7 @@ impl SubCmd {
                     cmd.push(format!("--optional={dopt}"));
                 }
                 cmd.push(package);
-                cmd
+                (cmd, false)
             }
         }
     }
@@ -315,11 +316,20 @@ impl SubCmd {
 
 fn main() -> ExitCode {
     let args = Cmd::parse();
-    let mut command = args.sub.generate_command(&args.opts);
+    let (mut command, sudo) = args.sub.generate_command(&args.opts);
     if args.generate_command {
         println!("{}", command.join(" "));
         ExitCode::SUCCESS
     } else {
+        if sudo {
+            match sudo::escalate_if_needed() {
+                Ok(sudo::RunningAs::Root) | Ok(sudo::RunningAs::Suid) => (),
+                _ => {
+                    eprintln!("failed to gain root privileges");
+                    return ExitCode::FAILURE;
+                }
+            }
+        }
         let mut process = Command::new(command.remove(0));
         for arg in &command {
             process.arg(arg);
