@@ -14,5 +14,5 @@ panic = "abort"
 
 [dependencies]
 atty = "0.2.14"
-clap = { version = "4.3.0", features = ["color", "derive", "error-context", "help", "std", "usage"], default_features = false }
+clap = { version = "4.3.0", features = ["color", "derive", "error-context", "help", "std", "usage", "wrap_help"], default_features = false }
 sudo = "0.6.0"

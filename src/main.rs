@@ -8,9 +8,9 @@ use clap::{Args, ColorChoice, Parser, Subcommand};
 mod tests;
 
 #[derive(Debug, Clone, Parser)]
-#[command(author, version, about)]
+#[command(author, version, about, max_term_width = 80)]
 struct Cmd {
-    /// Print the corresponding command to stdout instead of running it.
+    /// Print the underlying command without executing it.
     #[arg(short, long)]
     generate_command: bool,
 
@@ -29,7 +29,7 @@ struct GlobalOpts {
     /// Simulate a test run without performing any changes.
     #[arg(short, long)]
     simulate: bool,
-    /// Specify when to colorize output.
+    /// Colorize output.
     #[arg(short, long, value_enum)]
     color: Option<ColorChoice>,
     /// Specify an alternate configuration file.
@@ -81,16 +81,16 @@ enum SubCmd {
         keep_configs: bool,
     },
 
-    /// Update the package database and upgrade packages.
+    /// Refresh the package database and upgrade packages.
     #[command(alias = "u")]
     Upgrade {
         /// Only upgrade packages, do not refresh the package database.
         #[arg(short, long)]
         no_refresh: bool,
-        /// Only refresh the package database, do not upgrade any packages.
+        /// Only refresh the package database, do not perform upgrades.
         #[arg(short, long)]
         refresh: bool,
-        /// Retrieve packages from the server, but do not perform upgrades.
+        /// Retrieve packages, but do not perform upgrades.
         #[arg(short, long)]
         download: bool,
     },
@@ -101,8 +101,7 @@ enum SubCmd {
     /// as well as unused sync databases.
     #[command(alias = "c")]
     Clean {
-        /// Remove all packages from the cache,
-        /// including those that are currently installed.
+        /// Also remove installed packages from the cache.
         #[arg(short, long)]
         all: bool,
     },
@@ -119,15 +118,20 @@ enum SubCmd {
         /// Packages to mark.
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
-        /// Mark the packages as dependencies instead, allowing implicit removal.
-        #[arg(short, long)]
+        /// Mark the packages as dependencies instead.
+        #[arg(
+            short,
+            long,
+            long_help = "Mark the packages as dependencies instead, allowing indirect removal."
+        )]
         unpin: bool,
     },
 
+    // TODO: Expand this command by *a lot*.
     /// Search for a package.
     #[command(alias = "s")]
     Search {
-        /// Query strings to search for, regexes used for matching.
+        /// Query regexes to search for.
         #[arg(value_name = "QUERY")]
         queries: Vec<String>,
     },
@@ -154,7 +158,11 @@ enum SubCmd {
         /// Limit recursion depth for optional dependencies.
         #[arg(short = 'o', long, value_name = "NUMBER")]
         depth_optional: Option<u32>,
-        /// Show a reverse dependency tree.
+        /// Show a tree of reverse dependencies.
+        ///
+        /// In this tree,
+        /// rather than the parents depending on the children,
+        /// the children depend on the parents.
         #[arg(short, long)]
         reverse: bool,
     },
