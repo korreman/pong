@@ -115,16 +115,17 @@ enum SubCmd {
         queries: Vec<String>,
     },
 
+    // TODO: Should we query the sync database or the package database by default?
     /// Display various information about packages.
     #[command(alias = "v")]
     View {
         /// Packages to display information about.
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
-        /// Query the sync database instead of the package database.
+        /// Query the sync database instead of installed packages.
         #[arg(short, long)]
         remote: bool,
-        /// Read packages from files instead of the package database.
+        /// Query package files instead of installed packages.
         #[arg(short, long)]
         package_file: bool,
         /// Print more information.
