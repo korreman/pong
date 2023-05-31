@@ -211,9 +211,9 @@ impl SubCmd {
             SubCmd::Upgrade {
                 download,
                 no_sync,
-                only_sync: no_upgrade,
+                only_sync,
             } => {
-                if no_sync && no_upgrade {
+                if no_sync && only_sync {
                     eprintln!("either the package database must be updated or the packages upgraded for this command to have any effect");
                     std::process::exit(-1);
                 }
@@ -224,7 +224,7 @@ impl SubCmd {
                 if !no_sync {
                     arg.push('y');
                 }
-                if !no_upgrade {
+                if !only_sync {
                     arg.push('u');
                 }
                 cmd.push(arg);
@@ -237,10 +237,10 @@ impl SubCmd {
             }
             SubCmd::Pin {
                 packages,
-                unpin: dependency,
+                unpin,
             } => {
                 cmd.push("-D".to_owned());
-                let arg = match dependency {
+                let arg = match unpin {
                     true => "--asdeps",
                     false => "--asexplicit",
                 };
