@@ -30,8 +30,8 @@ struct GlobalOpts {
     #[arg(short, long)]
     simulate: bool,
     /// Specify when to colorize output.
-    #[arg(short, long, value_enum, default_value_t = ColorChoice::Auto)]
-    color: ColorChoice,
+    #[arg(short, long, value_enum)]
+    color: Option<ColorChoice>,
     /// Specify an alternate configuration file.
     #[arg(long, value_name = "FILE")]
     config: Option<PathBuf>,
@@ -65,7 +65,7 @@ enum SubCmd {
     /// Remove packages.
     ///
     /// Remove all specified packages and recursively remove all orphaned dependencies.
-    /// If a packaged is depended on by
+    /// Refuses to remove packages that are dependencies of others by default.
     #[command(alias = "r")]
     Remove {
         /// Packages to remove.
@@ -171,8 +171,10 @@ impl SubCmd {
         if global.verbose {
             cmd.push("--debug".to_owned());
         }
-        cmd.push("--color".to_owned());
-        cmd.push(global.color.to_string());
+        if let Some(color) = global.color {
+            cmd.push("--color".to_owned());
+            cmd.push(color.to_string());
+        }
         match self {
             SubCmd::Install {
                 packages,
@@ -235,10 +237,7 @@ impl SubCmd {
                 cmd.push(arg.to_owned());
                 cmd
             }
-            SubCmd::Pin {
-                packages,
-                unpin,
-            } => {
+            SubCmd::Pin { packages, unpin } => {
                 cmd.push("-D".to_owned());
                 let arg = match unpin {
                     true => "--asdeps",
@@ -288,8 +287,9 @@ impl SubCmd {
                 if ascii {
                     cmd_arg.push('a');
                 }
-                let color = global.color == ColorChoice::Always
-                    || global.color == ColorChoice::Auto && atty::is(atty::Stream::Stdout);
+                let color = global.color == Some(ColorChoice::Always)
+                    || (global.color == Some(ColorChoice::Auto) || global.color.is_none())
+                        && atty::is(atty::Stream::Stdout);
                 if color {
                     cmd_arg.push('c');
                 }
