@@ -81,13 +81,13 @@ enum SubCmd {
         keep_configs: bool,
     },
 
-    /// Refresh the package database and upgrade packages.
+    /// Refresh the sync database and upgrade packages.
     #[command(alias = "u")]
     Upgrade {
-        /// Only upgrade packages, do not refresh the package database.
+        /// Only upgrade packages, do not refresh the sync database.
         #[arg(short, long)]
         no_refresh: bool,
-        /// Only refresh the package database, do not perform upgrades.
+        /// Only refresh the sync database, do not perform upgrades.
         #[arg(short, long)]
         refresh: bool,
         /// Retrieve packages, but do not perform upgrades.
@@ -121,12 +121,12 @@ enum SubCmd {
         /// Packages to display information about.
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
-        /// Print information on locally installed packages.
+        /// Query the sync database instead of the package database.
         #[arg(short, long)]
-        local: bool,
-        /// package files instead of a database entries.
+        remote: bool,
+        /// Read packages from files instead of the package database.
         #[arg(short, long)]
-        file: bool,
+        package_file: bool,
         /// Print more information.
         ///
         /// This includes:
@@ -134,12 +134,12 @@ enum SubCmd {
         /// - Backup files and their modification states.
         #[arg(short, long)]
         more: bool,
-        /// Print the ChangeLog of a package if it exists.
+        /// List the files that the packages provide.
+        #[arg(short, long)]
+        files: bool,
+        /// Print the ChangeLog of a package (implies --local).
         #[arg(short, long)]
         changelog: bool,
-        /// List the files that a package provides.
-        #[arg(short, long)]
-        provides: bool,
     },
 
     /// Show the dependency tree of a package.
@@ -287,28 +287,31 @@ impl SubCmd {
             }
             SubCmd::View {
                 packages,
-                mut local,
-                file,
+                remote,
+                package_file,
                 changelog,
-                provides,
+                files,
                 more,
             } => {
-                incompatible((changelog, "changelog"), (provides, "provides"));
+                incompatible((changelog, "changelog"), (files, "files"));
                 incompatible((changelog, "changelog"), (more, "more"));
-                incompatible((provides, "provides"), (more, "more"));
+                incompatible((files, "files"), (more, "more"));
 
-                local |= file || changelog;
-                let mut arg = match local {
-                    true => String::from("-Q"),
-                    false => String::from("-S"),
+                incompatible((remote, "remote"), (package_file, "package-file"));
+                incompatible((remote, "remote"), (changelog, "changelog"));
+
+                let mut arg = match (remote, files) {
+                    (true, false) => String::from("-S"),
+                    (true, true) => String::from("-F"),
+                    (false, _) => String::from("-Q"),
                 };
 
-                if file {
+                if package_file {
                     arg.push('p');
                 }
                 if changelog {
                     arg.push('c');
-                } else if provides {
+                } else if files {
                     arg.push('l');
                 } else {
                     arg.push('i');
