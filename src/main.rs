@@ -50,14 +50,13 @@ enum SubCmd {
     /// Install the specified packages and all of their required dependencies.
     #[command(alias = "i")]
     Install {
-        /// Packages to install/reinstall.
+        /// Packages to install.
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
         /// Reinstall packages that are already installed.
         #[arg(short, long)]
         reinstall: bool,
-        /// Retrieve packages from the server,
-        /// but do not install/upgrade anything.
+        /// Retrieve packages, but do not install them.
         #[arg(short, long)]
         download: bool,
     },
@@ -65,19 +64,19 @@ enum SubCmd {
     /// Remove packages.
     ///
     /// Remove all specified packages and recursively remove all orphaned dependencies.
-    /// Refuses to remove packages that are dependencies of others by default.
+    /// Will refuse to remove packages that are dependencies of others by default.
     #[command(alias = "r")]
     Remove {
         /// Packages to remove.
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
-        /// Recursively remove all packages that depend on those specified for removal.
+        /// Recursively remove all packages that depend on the packages being removed.
         #[arg(short, long)]
         uproot: bool,
         /// Do not remove orphaned dependencies.
         #[arg(short = 'o', long)]
         keep_orphans: bool,
-        /// Remove configuration files as well.
+        /// Preserve configuration files.
         #[arg(short = 'c', long)]
         keep_configs: bool,
     },
@@ -103,15 +102,15 @@ enum SubCmd {
     #[command(alias = "c")]
     Clean {
         /// Remove all packages from the cache,
-        /// including ones that are currently installed.
+        /// including those that are currently installed.
         #[arg(short, long)]
         all: bool,
     },
 
-    /// Mark packages as explicitly installed, avoiding indirect removal.
+    /// Mark packages as explicitly installed, preventing indirect removal.
     ///
     /// Installed packages are marked with an install reason,
-    /// that being either 'explicitly installed' or as 'installed as dependency'.
+    /// that being either 'explicitly installed' or 'installed as dependency'.
     /// Dependencies are generally removed along with the last package that depends on them.
     /// By changing the install reason to 'explicit',
     /// packages are pinned in place and avoid being removed indirectly.
@@ -133,18 +132,18 @@ enum SubCmd {
         queries: Vec<String>,
     },
 
-    /// Print info on packages.
+    /// Print information about packages.
     #[command(alias = "d", visible_alias = "info")]
     Desc {
-        /// Packages to display info on.
+        /// Packages to display information about.
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
     },
 
-    /// Print the dependency tree of a package.
+    /// Show the dependency tree of a package.
     #[command(alias = "t")]
     Tree {
-        /// The package to print a dependency tree for.
+        /// The package to show a dependency tree for.
         package: String,
         /// Use ASCII characters for tree formatting.
         #[arg(short, long)]
@@ -155,7 +154,7 @@ enum SubCmd {
         /// Limit recursion depth for optional dependencies.
         #[arg(short = 'o', long, value_name = "NUMBER")]
         depth_optional: Option<u32>,
-        /// List package dependants instead of dependencies.
+        /// Show a reverse dependency tree.
         #[arg(short, long)]
         reverse: bool,
     },
@@ -163,7 +162,7 @@ enum SubCmd {
 
 impl SubCmd {
     /// Generate the corresponding underlying command,
-    /// and tell whether root user privileges are needed to run it.
+    /// and tell whether root user privileges are required to run it.
     fn generate_command(self, global: &GlobalOpts) -> (Vec<String>, bool) {
         let mut cmd = vec!["pacman".to_owned()];
         if global.simulate {
