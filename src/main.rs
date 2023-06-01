@@ -29,6 +29,13 @@ struct GlobalOpts {
     /// Simulate a test run without performing any changes.
     #[arg(short, long)]
     simulate: bool,
+    /// Show less information for certain operations.
+    #[arg(short, long)]
+    quiet: bool,
+    // TODO: Support this option
+    /// Never ask for confirmation.
+    #[arg(short, long)]
+    yes: bool,
     /// Colorize output.
     #[arg(short, long, value_enum)]
     color: Option<ColorChoice>,
@@ -85,7 +92,7 @@ enum SubCmd {
     #[command(alias = "u")]
     Upgrade {
         /// Only upgrade packages, do not refresh the sync database.
-        #[arg(short, long)]
+        #[arg(short, long, conflicts_with("refresh"))]
         no_refresh: bool,
         /// Only refresh the sync database, do not perform upgrades.
         #[arg(short, long)]
@@ -106,13 +113,45 @@ enum SubCmd {
         all: bool,
     },
 
-    // TODO: Expand this command by *a lot*.
     /// Search for a package.
-    #[command(aliases = ["s", "l"], visible_alias = "list")]
+    #[command(alias = "s")]
     Search {
         /// Query regexes to search for.
-        #[arg(value_name = "QUERY")]
+        #[arg(value_name = "REGEX")]
         queries: Vec<String>,
+        /// Search in installed packages.
+        #[arg(short, long)]
+        local: bool,
+        /// Search for packages that own the specified file(s).
+        #[arg(short, long)]
+        file: bool,
+        /// Do not use regex for filtering (files).
+        #[arg(short, long, conflicts_with("local"))]
+        exact: bool,
+    },
+
+    /// List installed packages.
+    #[command(alias = "l")]
+    List {
+        /// Only list packages installed explicitly.
+        #[arg(short, long, conflicts_with("deps"))]
+        explicit: bool,
+        /// Only list packages installed as dependencies.
+        #[arg(short, long)]
+        deps: bool,
+        /// Only list packages found in the sync database(s).
+        #[arg(short, long, conflicts_with("no_sync"))]
+        sync: bool,
+        // TODO: Better name for below.
+        /// Only list packages not found in the sync database(s).
+        #[arg(short, long)]
+        no_sync: bool,
+        /// Only list packages not required by any installed packages.
+        #[arg(short, long)]
+        free: bool,
+        /// Only list packages that are out of date.
+        #[arg(short, long)]
+        upgrades: bool,
     },
 
     // TODO: Should we query the sync database or the package database by default?
@@ -123,7 +162,12 @@ enum SubCmd {
         #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
         /// Query the sync database instead of installed packages.
-        #[arg(short, long)]
+        #[arg(
+            short,
+            long,
+            conflicts_with("package_file"),
+            conflicts_with("changelog")
+        )]
         remote: bool,
         /// Query package files instead of installed packages.
         #[arg(short, long)]
@@ -133,10 +177,10 @@ enum SubCmd {
         /// This includes:
         /// - Packages that require the named packages.
         /// - Backup files and their modification states.
-        #[arg(short, long)]
+        #[arg(short, long, conflicts_with("files"), conflicts_with("changelog"))]
         more: bool,
         /// List the files that the packages provide.
-        #[arg(short, long)]
+        #[arg(short, long, conflicts_with("changelog"))]
         files: bool,
         /// Print the ChangeLog of a package (implies --local).
         #[arg(short, long)]
@@ -186,11 +230,6 @@ enum SubCmd {
     },
 }
 
-fn quit(e: impl AsRef<str>) -> ! {
-    eprintln!("{}", e.as_ref());
-    std::process::exit(1)
-}
-
 impl SubCmd {
     /// Generate the corresponding underlying command,
     /// and tell whether root user privileges are required to run it.
@@ -202,16 +241,31 @@ impl SubCmd {
         if global.debug {
             cmd.push("--debug".to_owned());
         }
+        if global.yes {
+            cmd.push("--noconfirm".to_owned());
+        }
         if let Some(color) = global.color {
             cmd.push("--color".to_owned());
             cmd.push(color.to_string());
         }
-
-        let incompatible = |(a, a_str): (bool, &str), (b, b_str): (bool, &str)| {
-            if a && b {
-                quit(format!("incompatible options: '--{a_str}' and '--{b_str}'"));
-            }
-        };
+        if let Some(config) = &global.config {
+            cmd.push(format!(
+                "--config {}",
+                config.to_str().expect("non-unicode isn't supported (yet?)")
+            ));
+        }
+        if let Some(dbpath) = &global.dbpath {
+            cmd.push(format!(
+                "--dbpath {}",
+                dbpath.to_str().expect("non-unicode isn't supported (yet?)")
+            ));
+        }
+        if let Some(gpgdir) = &global.gpgdir {
+            cmd.push(format!(
+                "--gpgdir {}",
+                gpgdir.to_str().expect("non-unicode isn't supported (yet?)")
+            ));
+        }
 
         match self {
             SubCmd::Install {
@@ -222,6 +276,9 @@ impl SubCmd {
                 let mut arg = String::from("-S");
                 if download {
                     arg.push('w');
+                }
+                if global.quiet {
+                    arg.push('q');
                 }
                 cmd.push(arg);
                 if !reinstall {
@@ -253,8 +310,6 @@ impl SubCmd {
                 no_refresh,
                 refresh,
             } => {
-                incompatible((refresh, "refresh"), (no_refresh, "no-refresh"));
-
                 let mut arg = String::from("-S");
                 if download {
                     arg.push('w');
@@ -265,6 +320,9 @@ impl SubCmd {
                 if !refresh {
                     arg.push('u');
                 }
+                if global.quiet {
+                    arg.push('q');
+                }
                 cmd.push(arg);
                 (cmd, true)
             }
@@ -274,7 +332,10 @@ impl SubCmd {
                 (cmd, true)
             }
             SubCmd::Pin { packages, unpin } => {
-                cmd.push("-D".to_owned());
+                match global.quiet {
+                    false => cmd.push("-D".to_owned()),
+                    true => cmd.push("-Dq".to_owned()),
+                }
                 let arg = match unpin {
                     true => "--asdeps",
                     false => "--asexplicit",
@@ -282,8 +343,29 @@ impl SubCmd {
                 cmd.push(arg.to_owned());
                 ([cmd, packages].concat(), true)
             }
-            SubCmd::Search { queries } => {
-                cmd.push("-Ss".to_owned());
+            SubCmd::Search {
+                queries,
+                file,
+                local,
+                exact,
+            } => {
+                let mut arg = match (local, file) {
+                    (true, true) => "-Qo",
+                    (true, false) => "-Qs",
+                    (false, true) => {
+                        if exact {
+                            "-F"
+                        } else {
+                            "-Fx"
+                        }
+                    }
+                    (false, false) => "-Ss",
+                }
+                .to_owned();
+                if global.quiet {
+                    arg.push('q');
+                }
+                cmd.push(arg);
                 ([cmd, queries].concat(), false)
             }
             SubCmd::View {
@@ -294,13 +376,6 @@ impl SubCmd {
                 files,
                 more,
             } => {
-                incompatible((changelog, "changelog"), (files, "files"));
-                incompatible((changelog, "changelog"), (more, "more"));
-                incompatible((files, "files"), (more, "more"));
-
-                incompatible((remote, "remote"), (package_file, "package-file"));
-                incompatible((remote, "remote"), (changelog, "changelog"));
-
                 let mut arg = match (remote, files) {
                     (true, false) => String::from("-S"),
                     (true, true) => String::from("-F"),
@@ -319,6 +394,9 @@ impl SubCmd {
                 }
                 if more {
                     arg.push('i');
+                }
+                if global.quiet {
+                    arg.push('q');
                 }
                 cmd.push(arg);
                 ([cmd, packages].concat(), false)
@@ -376,6 +454,37 @@ impl SubCmd {
                     cmd.push(format!("--optional={dopt}"));
                 }
                 cmd.push(package);
+                (cmd, false)
+            }
+            SubCmd::List {
+                explicit,
+                deps,
+                no_sync: foreign,
+                sync: native,
+                free: unrequired,
+                upgrades,
+            } => {
+                let mut arg = String::from("-Q");
+                if explicit {
+                    arg.push('e');
+                } else if deps {
+                    arg.push('d');
+                }
+                if foreign {
+                    arg.push('m');
+                } else if native {
+                    arg.push('n');
+                }
+                if unrequired {
+                    arg.push('t');
+                }
+                if upgrades {
+                    arg.push('u');
+                }
+                if global.quiet {
+                    arg.push('q');
+                }
+                cmd.push(arg);
                 (cmd, false)
             }
         }
