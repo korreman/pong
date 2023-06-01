@@ -32,7 +32,6 @@ struct GlobalOpts {
     /// Show less information for certain operations.
     #[arg(short, long)]
     quiet: bool,
-    // TODO: Support this option
     /// Never ask for confirmation.
     #[arg(short, long)]
     yes: bool,
@@ -91,6 +90,7 @@ enum SubCmd {
     /// Refresh the sync database and upgrade packages.
     #[command(alias = "u")]
     Upgrade {
+        // TODO: Better name for this option.
         /// Only upgrade packages, do not refresh the sync database.
         #[arg(short, long, conflicts_with("refresh"))]
         no_refresh: bool,
