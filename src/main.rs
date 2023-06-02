@@ -1,3 +1,4 @@
+use std::io::IsTerminal;
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
 use std::process::{Command, ExitCode};
@@ -436,7 +437,7 @@ impl SubCmd {
                 }
                 let color = global.color == Some(ColorChoice::Always)
                     || (global.color == Some(ColorChoice::Auto) || global.color.is_none())
-                        && atty::is(atty::Stream::Stdout);
+                        && std::io::stdout().is_terminal();
                 if color {
                     cmd_arg.push('c');
                 }
