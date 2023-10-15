@@ -1,6 +1,5 @@
 use std::io::IsTerminal;
 use std::os::unix::process::CommandExt;
-use std::path::PathBuf;
 use std::process::{Command, ExitCode};
 
 use clap::{Args, ColorChoice, Parser, Subcommand};
@@ -66,13 +65,13 @@ struct GlobalOpts {
     color: Option<ColorChoice>,
     /// Specify an alternate configuration file.
     #[arg(long, value_name = "FILE")]
-    config: Option<PathBuf>,
+    config: Option<String>,
     /// Specify an alternate database location.
     #[arg(long, value_name = "DIR")]
-    dbpath: Option<PathBuf>,
+    dbpath: Option<String>,
     /// Specify an alternate directory for GnuPG.
     #[arg(long, value_name = "DIR")]
-    gpgdir: Option<PathBuf>,
+    gpgdir: Option<String>,
 }
 
 #[derive(Debug, Clone, Subcommand)]
@@ -259,32 +258,15 @@ impl SubCmd {
     /// Generate the corresponding underlying command,
     /// and tell whether root user privileges are required to run it.
     fn generate_command(self, global: &GlobalOpts) -> (Vec<String>, bool) {
-        let mut cmd = vec!["pacman".to_owned()];
-        carg(&mut cmd, "--print", global.simulate);
-        carg(&mut cmd, "--debug", global.debug);
-        carg(&mut cmd, "--noconfirm", global.yes);
-        if let Some(color) = global.color {
-            cmd.push("--color".to_owned());
-            cmd.push(color.to_string());
-        }
-        if let Some(config) = &global.config {
-            cmd.push(format!(
-                "--config {}",
-                config.to_str().expect("non-unicode isn't supported (yet?)")
-            ));
-        }
-        if let Some(dbpath) = &global.dbpath {
-            cmd.push(format!(
-                "--dbpath {}",
-                dbpath.to_str().expect("non-unicode isn't supported (yet?)")
-            ));
-        }
-        if let Some(gpgdir) = &global.gpgdir {
-            cmd.push(format!(
-                "--gpgdir {}",
-                gpgdir.to_str().expect("non-unicode isn't supported (yet?)")
-            ));
-        }
+        let mut root = false;
+        let mut cli = Cli::new("pacman");
+        cli.arg("--print", global.simulate);
+        cli.arg("--debug", global.debug);
+        cli.arg("--noconfirm", global.yes);
+        cli.arg_opt("--color", &global.color);
+        cli.arg_opt("--config", &global.config);
+        cli.arg_opt("--dbpath", &global.dbpath);
+        cli.arg_opt("--gpgdir", &global.gpgdir);
 
         match self {
             SubCmd::Install {
@@ -292,55 +274,50 @@ impl SubCmd {
                 reinstall,
                 download,
             } => {
-                let mut arg = String::from("-S");
-                flag(&mut arg, 'q', global.quiet);
-                flag(&mut arg, 'w', download);
-                cmd.push(arg);
-                carg(&mut cmd, "--needed", !reinstall);
-                ([cmd, packages].concat(), true)
+                root = true;
+                cli.arg("-S", true);
+                cli.flag('q', global.quiet);
+                cli.flag('w', download);
+                cli.arg("--needed", !reinstall);
+                cli.args(packages);
             }
             SubCmd::Remove {
                 packages,
                 keep_configs,
                 keep_orphans,
-                cascade: force,
+                cascade,
             } => {
-                let mut arg = String::from("-R");
-                flag(&mut arg, 'n', !keep_configs);
-                flag(&mut arg, 's', !keep_orphans);
-                flag(&mut arg, 'c', force);
-                cmd.push(arg);
-                ([cmd, packages].concat(), true)
+                root = true;
+                cli.arg("-R", true);
+                cli.flag('n', !keep_configs);
+                cli.flag('s', !keep_orphans);
+                cli.flag('c', cascade);
+                cli.args(packages);
             }
             SubCmd::Upgrade {
                 download,
                 no_refresh,
                 refresh,
             } => {
-                let mut arg = String::from("-S");
-                flag(&mut arg, 'q', global.quiet);
-                flag(&mut arg, 'w', download);
-                flag(&mut arg, 'y', !no_refresh);
-                flag(&mut arg, 'u', !refresh);
-                cmd.push(arg);
-                (cmd, true)
+                root = true;
+                cli.arg("-S", true);
+                cli.flag('q', global.quiet);
+                cli.flag('w', download);
+                cli.flag('y', !no_refresh);
+                cli.flag('u', !refresh);
             }
             SubCmd::Clean { all } => {
-                let arg = if all { "-Scc" } else { "-Sc" };
-                cmd.push(arg.to_owned());
-                (cmd, true)
+                root = true;
+                cli.arg("-Sc", true);
+                cli.flag('c', all);
             }
             SubCmd::Pin { packages, remove } => {
-                match global.quiet {
-                    true => cmd.push("-Dq".to_owned()),
-                    false => cmd.push("-D".to_owned()),
-                }
-                let arg = match remove {
-                    true => "--asdeps",
-                    false => "--asexplicit",
-                };
-                cmd.push(arg.to_owned());
-                ([cmd, packages].concat(), true)
+                root = true;
+                cli.arg("-D", true);
+                cli.flag('q', global.quiet);
+                cli.arg("--asexplicit", !remove);
+                cli.arg("--asdeps", remove);
+                cli.args(packages);
             }
             SubCmd::Search {
                 queries,
@@ -348,22 +325,16 @@ impl SubCmd {
                 local,
                 exact,
             } => {
-                let arg = match (local, file) {
-                    (true, true) => "-Qo",
-                    (true, false) => "-Qs",
-                    (false, true) => {
-                        if exact {
-                            "-F"
-                        } else {
-                            "-Fx"
-                        }
-                    }
-                    (false, false) => "-Ss",
+                let arg = match (local, file, exact) {
+                    (true, true, _) => "-Qo",
+                    (true, false, _) => "-Qs",
+                    (false, true, true) => "-F",
+                    (false, true, false) => "-Fx",
+                    (false, false, _) => "-Ss",
                 };
-                let mut arg = arg.to_owned();
-                flag(&mut arg, 'q', global.quiet);
-                cmd.push(arg);
-                ([cmd, queries].concat(), false)
+                cli.arg(arg, true);
+                cli.flag('q', global.quiet);
+                cli.args(queries);
             }
             SubCmd::View {
                 packages,
@@ -373,19 +344,19 @@ impl SubCmd {
                 files,
                 more,
             } => {
-                let mut arg = match (sync, files) {
-                    (true, false) => String::from("-S"),
-                    (true, true) => String::from("-F"),
-                    (false, _) => String::from("-Q"),
+                let arg = match (sync, files) {
+                    (true, false) => "-S",
+                    (true, true) => "-F",
+                    (false, _) => "-Q",
                 };
-                flag(&mut arg, 'q', global.quiet);
-                flag(&mut arg, 'p', package_file);
-                flag(&mut arg, 'c', changelog);
-                flag(&mut arg, 'l', files);
-                flag(&mut arg, 'i', !(changelog && files));
-                flag(&mut arg, 'i', more);
-                cmd.push(arg);
-                ([cmd, packages].concat(), false)
+                cli.arg(arg, true);
+                cli.flag('q', global.quiet);
+                cli.flag('p', package_file);
+                cli.flag('c', changelog);
+                cli.flag('l', files);
+                cli.flag('i', !(changelog && files));
+                cli.flag('i', more);
+                cli.args(packages);
             }
             SubCmd::Tree {
                 package,
@@ -394,45 +365,30 @@ impl SubCmd {
                 depth_optional,
                 reverse,
             } => {
-                cmd = vec!["pactree".to_owned()];
-                carg(&mut cmd, "--debug", global.debug);
-                if let Some(config) = &global.config {
-                    cmd.push(format!(
-                        "--config {}",
-                        config.to_str().expect("non-unicode isn't supported (yet?)")
-                    ));
+                cli = Cli::new("pactree");
+                cli.arg("--debug", global.debug);
+                cli.arg_opt("--config", &global.config);
+                cli.arg_opt("--dbpath", &global.dbpath);
+                cli.arg_opt("--gpgdir", &global.gpgdir);
+
+                let color = {
+                    let terminal = std::io::stdout().is_terminal();
+                    let auto = global.color == Some(ColorChoice::Auto) || global.color.is_none();
+                    let always = global.color == Some(ColorChoice::Always);
+                    always || auto && terminal
+                };
+
+                cli.arg("-", true);
+                cli.flag('a', ascii);
+                cli.flag('c', color);
+                cli.flag('r', reverse);
+                if cli.0.last().unwrap() == "-" {
+                    cli.0.pop().unwrap();
                 }
-                if let Some(dbpath) = &global.dbpath {
-                    cmd.push(format!(
-                        "--dbpath {}",
-                        dbpath.to_str().expect("non-unicode isn't supported (yet?)")
-                    ));
-                }
-                if let Some(gpgdir) = &global.gpgdir {
-                    cmd.push(format!(
-                        "--gpgdir {}",
-                        gpgdir.to_str().expect("non-unicode isn't supported (yet?)")
-                    ));
-                }
-                let mut cmd_arg = String::from("-");
-                flag(&mut cmd_arg, 'a', ascii);
-                let color = global.color == Some(ColorChoice::Always)
-                    || (global.color == Some(ColorChoice::Auto) || global.color.is_none())
-                        && std::io::stdout().is_terminal();
-                flag(&mut cmd_arg, 'c', color);
-                flag(&mut cmd_arg, 'r', reverse);
-                if let Some(d) = depth {
-                    cmd.push("-d".to_owned());
-                    cmd.push(format!("{d}"));
-                }
-                if cmd_arg != "-" {
-                    cmd.push(cmd_arg);
-                }
-                if let Some(dopt) = depth_optional {
-                    cmd.push(format!("--optional={dopt}"));
-                }
-                cmd.push(package);
-                (cmd, false)
+
+                cli.arg_opt("-d", &depth);
+                cli.arg_opt("--optional", &depth_optional);
+                cli.args(vec![package]);
             }
             SubCmd::List {
                 explicit,
@@ -442,29 +398,47 @@ impl SubCmd {
                 free,
                 upgrades,
             } => {
-                let mut arg = String::from("-Q");
-                flag(&mut arg, 'q', global.quiet);
-                flag(&mut arg, 'e', explicit);
-                flag(&mut arg, 'd', deps);
-                flag(&mut arg, 'm', no_sync);
-                flag(&mut arg, 'n', sync);
-                flag(&mut arg, 't', free);
-                flag(&mut arg, 'u', upgrades);
-                cmd.push(arg);
-                (cmd, false)
+                cli.arg("-Q", true);
+                cli.flag('q', global.quiet);
+                cli.flag('e', explicit);
+                cli.flag('d', deps);
+                cli.flag('m', no_sync);
+                cli.flag('n', sync);
+                cli.flag('t', free);
+                cli.flag('u', upgrades);
             }
         }
+        (cli.0, root)
     }
 }
 
-fn flag(arg: &mut String, f: char, guard: bool) {
-    if guard {
-        arg.push(f);
-    }
-}
+struct Cli(Vec<String>);
 
-fn carg(cmd: &mut Vec<String>, a: &str, guard: bool) {
-    if guard {
-        cmd.push(a.to_owned());
+impl Cli {
+    fn new(base: &str) -> Self {
+        Self(vec![base.to_owned()])
+    }
+
+    fn flag(&mut self, f: char, guard: bool) {
+        if guard {
+            self.0.last_mut().unwrap().push(f);
+        }
+    }
+
+    fn arg(&mut self, a: &str, guard: bool) {
+        if guard {
+            self.0.push(a.to_owned());
+        }
+    }
+
+    fn arg_opt<T: std::fmt::Display>(&mut self, a: &str, value: &Option<T>) {
+        if let Some(value) = value {
+            self.0.push(a.to_owned());
+            self.0.push(format!("{value}"));
+        }
+    }
+
+    fn args(&mut self, mut args: Vec<String>) {
+        self.0.append(&mut args);
     }
 }
