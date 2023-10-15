@@ -8,6 +8,31 @@ use clap::{Args, ColorChoice, Parser, Subcommand};
 #[cfg(test)]
 mod tests;
 
+fn main() -> ExitCode {
+    let args = Cmd::parse();
+    let (mut command, sudo) = args.sub.generate_command(&args.opts);
+    if args.generate_command {
+        println!("{}", command.join(" "));
+        ExitCode::SUCCESS
+    } else {
+        if sudo {
+            match sudo::escalate_if_needed() {
+                Ok(sudo::RunningAs::Root) | Ok(sudo::RunningAs::Suid) => (),
+                _ => {
+                    eprintln!("failed to gain root privileges");
+                    return ExitCode::FAILURE;
+                }
+            }
+        }
+        let mut process = Command::new(command.remove(0));
+        for arg in &command {
+            process.arg(arg);
+        }
+        process.exec();
+        ExitCode::FAILURE
+    }
+}
+
 #[derive(Debug, Clone, Parser)]
 #[command(author, version, about, max_term_width = 80)]
 struct Cmd {
@@ -52,13 +77,13 @@ struct GlobalOpts {
 
 #[derive(Debug, Clone, Subcommand)]
 enum SubCmd {
-    /// Install/reinstall packages.
+    /// Install packages.
     ///
     /// Install the specified packages and all of their required dependencies.
     #[command(alias = "i")]
     Install {
         /// Packages to install.
-        #[arg(value_name = "PACKAGE")]
+        #[arg(value_name = "PACKAGES")]
         packages: Vec<String>,
         /// Reinstall packages that are already installed.
         #[arg(short, long)]
@@ -70,17 +95,17 @@ enum SubCmd {
 
     /// Remove packages.
     ///
-    /// Remove all specified packages and recursively remove all orphaned dependencies.
-    /// Will refuse to remove packages that are dependencies of others by default.
+    /// Remove all specified packages and recursively remove any orphaned dependencies.
     #[command(alias = "r")]
     Remove {
         /// Packages to remove.
-        #[arg(value_name = "PACKAGE")]
+        #[arg(value_name = "PACKAGES")]
         packages: Vec<String>,
-        /// Recursively remove all packages that depend on the packages being removed.
+        // TODO: Better naming
+        /// Remove all packages that depend on the packages as well.
         #[arg(short, long)]
-        uproot: bool,
-        /// Do not remove orphaned dependencies.
+        cascade: bool,
+        /// Keep orphaned dependencies.
         #[arg(short = 'o', long)]
         keep_orphans: bool,
         /// Preserve configuration files.
@@ -118,7 +143,7 @@ enum SubCmd {
     #[command(alias = "s")]
     Search {
         /// Query regexes to search for.
-        #[arg(value_name = "REGEX")]
+        #[arg(value_name = "REGEXES")]
         queries: Vec<String>,
         /// Search in installed packages.
         #[arg(short, long)]
@@ -140,6 +165,9 @@ enum SubCmd {
         /// Only list packages installed as dependencies.
         #[arg(short, long)]
         deps: bool,
+        /// Only list packages not required by any installed packages.
+        #[arg(short, long)]
+        free: bool,
         /// Only list packages found in the sync database(s).
         #[arg(short, long, conflicts_with("no_sync"))]
         sync: bool,
@@ -147,20 +175,16 @@ enum SubCmd {
         /// Only list packages not found in the sync database(s).
         #[arg(short, long)]
         no_sync: bool,
-        /// Only list packages not required by any installed packages.
-        #[arg(short, long)]
-        free: bool,
         /// Only list packages that are out of date.
         #[arg(short, long)]
         upgrades: bool,
     },
 
-    // TODO: Should we query the sync database or the package database by default?
     /// Display various information about packages.
     #[command(alias = "v")]
     View {
         /// Packages to display information about.
-        #[arg(value_name = "PACKAGE")]
+        #[arg(value_name = "PACKAGES")]
         packages: Vec<String>,
         /// Query the sync database instead of installed packages.
         #[arg(
@@ -169,7 +193,7 @@ enum SubCmd {
             conflicts_with("package_file"),
             conflicts_with("changelog")
         )]
-        remote: bool,
+        sync: bool,
         /// Query package files instead of installed packages.
         #[arg(short, long)]
         package_file: bool,
@@ -183,7 +207,7 @@ enum SubCmd {
         /// List the files that the packages provide.
         #[arg(short, long, conflicts_with("changelog"))]
         files: bool,
-        /// Print the ChangeLog of a package (implies --local).
+        /// Print the ChangeLog of a local package.
         #[arg(short, long)]
         changelog: bool,
     },
@@ -211,7 +235,7 @@ enum SubCmd {
         reverse: bool,
     },
 
-    /// Mark packages as explicitly installed.
+    /// Mark/unmark packages as explicitly installed.
     ///
     /// By changing the install reason for a package to 'explicit',
     /// packages that were originally installed as dependencies
@@ -219,7 +243,7 @@ enum SubCmd {
     #[command(alias = "p")]
     Pin {
         /// Packages to mark.
-        #[arg(value_name = "PACKAGE")]
+        #[arg(value_name = "PACKAGES")]
         packages: Vec<String>,
         /// Mark the packages as dependencies instead.
         #[arg(
@@ -227,7 +251,7 @@ enum SubCmd {
             long,
             long_help = "Mark the packages as dependencies instead, allowing indirect removal."
         )]
-        unpin: bool,
+        remove: bool,
     },
 }
 
@@ -236,15 +260,9 @@ impl SubCmd {
     /// and tell whether root user privileges are required to run it.
     fn generate_command(self, global: &GlobalOpts) -> (Vec<String>, bool) {
         let mut cmd = vec!["pacman".to_owned()];
-        if global.simulate {
-            cmd.push("--print".to_owned());
-        };
-        if global.debug {
-            cmd.push("--debug".to_owned());
-        }
-        if global.yes {
-            cmd.push("--noconfirm".to_owned());
-        }
+        carg(&mut cmd, "--print", global.simulate);
+        carg(&mut cmd, "--debug", global.debug);
+        carg(&mut cmd, "--noconfirm", global.yes);
         if let Some(color) = global.color {
             cmd.push("--color".to_owned());
             cmd.push(color.to_string());
@@ -275,34 +293,22 @@ impl SubCmd {
                 download,
             } => {
                 let mut arg = String::from("-S");
-                if download {
-                    arg.push('w');
-                }
-                if global.quiet {
-                    arg.push('q');
-                }
+                flag(&mut arg, 'q', global.quiet);
+                flag(&mut arg, 'w', download);
                 cmd.push(arg);
-                if !reinstall {
-                    cmd.push("--needed".to_owned());
-                }
+                carg(&mut cmd, "--needed", !reinstall);
                 ([cmd, packages].concat(), true)
             }
             SubCmd::Remove {
                 packages,
                 keep_configs,
                 keep_orphans,
-                uproot,
+                cascade: force,
             } => {
                 let mut arg = String::from("-R");
-                if !keep_orphans {
-                    arg.push('s');
-                }
-                if !keep_configs {
-                    arg.push('n');
-                }
-                if uproot {
-                    arg.push('c');
-                }
+                flag(&mut arg, 'n', !keep_configs);
+                flag(&mut arg, 's', !keep_orphans);
+                flag(&mut arg, 'c', force);
                 cmd.push(arg);
                 ([cmd, packages].concat(), true)
             }
@@ -312,18 +318,10 @@ impl SubCmd {
                 refresh,
             } => {
                 let mut arg = String::from("-S");
-                if download {
-                    arg.push('w');
-                }
-                if !no_refresh {
-                    arg.push('y');
-                }
-                if !refresh {
-                    arg.push('u');
-                }
-                if global.quiet {
-                    arg.push('q');
-                }
+                flag(&mut arg, 'q', global.quiet);
+                flag(&mut arg, 'w', download);
+                flag(&mut arg, 'y', !no_refresh);
+                flag(&mut arg, 'u', !refresh);
                 cmd.push(arg);
                 (cmd, true)
             }
@@ -332,12 +330,12 @@ impl SubCmd {
                 cmd.push(arg.to_owned());
                 (cmd, true)
             }
-            SubCmd::Pin { packages, unpin } => {
+            SubCmd::Pin { packages, remove } => {
                 match global.quiet {
-                    false => cmd.push("-D".to_owned()),
                     true => cmd.push("-Dq".to_owned()),
+                    false => cmd.push("-D".to_owned()),
                 }
-                let arg = match unpin {
+                let arg = match remove {
                     true => "--asdeps",
                     false => "--asexplicit",
                 };
@@ -350,7 +348,7 @@ impl SubCmd {
                 local,
                 exact,
             } => {
-                let mut arg = match (local, file) {
+                let arg = match (local, file) {
                     (true, true) => "-Qo",
                     (true, false) => "-Qs",
                     (false, true) => {
@@ -361,44 +359,31 @@ impl SubCmd {
                         }
                     }
                     (false, false) => "-Ss",
-                }
-                .to_owned();
-                if global.quiet {
-                    arg.push('q');
-                }
+                };
+                let mut arg = arg.to_owned();
+                flag(&mut arg, 'q', global.quiet);
                 cmd.push(arg);
                 ([cmd, queries].concat(), false)
             }
             SubCmd::View {
                 packages,
-                remote,
+                sync,
                 package_file,
                 changelog,
                 files,
                 more,
             } => {
-                let mut arg = match (remote, files) {
+                let mut arg = match (sync, files) {
                     (true, false) => String::from("-S"),
                     (true, true) => String::from("-F"),
                     (false, _) => String::from("-Q"),
                 };
-
-                if package_file {
-                    arg.push('p');
-                }
-                if changelog {
-                    arg.push('c');
-                } else if files {
-                    arg.push('l');
-                } else {
-                    arg.push('i');
-                }
-                if more {
-                    arg.push('i');
-                }
-                if global.quiet {
-                    arg.push('q');
-                }
+                flag(&mut arg, 'q', global.quiet);
+                flag(&mut arg, 'p', package_file);
+                flag(&mut arg, 'c', changelog);
+                flag(&mut arg, 'l', files);
+                flag(&mut arg, 'i', !(changelog && files));
+                flag(&mut arg, 'i', more);
                 cmd.push(arg);
                 ([cmd, packages].concat(), false)
             }
@@ -410,9 +395,7 @@ impl SubCmd {
                 reverse,
             } => {
                 cmd = vec!["pactree".to_owned()];
-                if global.debug {
-                    cmd.push("--debug".to_owned());
-                }
+                carg(&mut cmd, "--debug", global.debug);
                 if let Some(config) = &global.config {
                     cmd.push(format!(
                         "--config {}",
@@ -432,18 +415,12 @@ impl SubCmd {
                     ));
                 }
                 let mut cmd_arg = String::from("-");
-                if ascii {
-                    cmd_arg.push('a');
-                }
+                flag(&mut cmd_arg, 'a', ascii);
                 let color = global.color == Some(ColorChoice::Always)
                     || (global.color == Some(ColorChoice::Auto) || global.color.is_none())
                         && std::io::stdout().is_terminal();
-                if color {
-                    cmd_arg.push('c');
-                }
-                if reverse {
-                    cmd_arg.push('r');
-                }
+                flag(&mut cmd_arg, 'c', color);
+                flag(&mut cmd_arg, 'r', reverse);
                 if let Some(d) = depth {
                     cmd.push("-d".to_owned());
                     cmd.push(format!("{d}"));
@@ -460,31 +437,19 @@ impl SubCmd {
             SubCmd::List {
                 explicit,
                 deps,
-                no_sync: foreign,
-                sync: native,
-                free: unrequired,
+                no_sync,
+                sync,
+                free,
                 upgrades,
             } => {
                 let mut arg = String::from("-Q");
-                if explicit {
-                    arg.push('e');
-                } else if deps {
-                    arg.push('d');
-                }
-                if foreign {
-                    arg.push('m');
-                } else if native {
-                    arg.push('n');
-                }
-                if unrequired {
-                    arg.push('t');
-                }
-                if upgrades {
-                    arg.push('u');
-                }
-                if global.quiet {
-                    arg.push('q');
-                }
+                flag(&mut arg, 'q', global.quiet);
+                flag(&mut arg, 'e', explicit);
+                flag(&mut arg, 'd', deps);
+                flag(&mut arg, 'm', no_sync);
+                flag(&mut arg, 'n', sync);
+                flag(&mut arg, 't', free);
+                flag(&mut arg, 'u', upgrades);
                 cmd.push(arg);
                 (cmd, false)
             }
@@ -492,27 +457,14 @@ impl SubCmd {
     }
 }
 
-fn main() -> ExitCode {
-    let args = Cmd::parse();
-    let (mut command, sudo) = args.sub.generate_command(&args.opts);
-    if args.generate_command {
-        println!("{}", command.join(" "));
-        ExitCode::SUCCESS
-    } else {
-        if sudo {
-            match sudo::escalate_if_needed() {
-                Ok(sudo::RunningAs::Root) | Ok(sudo::RunningAs::Suid) => (),
-                _ => {
-                    eprintln!("failed to gain root privileges");
-                    return ExitCode::FAILURE;
-                }
-            }
-        }
-        let mut process = Command::new(command.remove(0));
-        for arg in &command {
-            process.arg(arg);
-        }
-        process.exec();
-        ExitCode::FAILURE
+fn flag(arg: &mut String, f: char, guard: bool) {
+    if guard {
+        arg.push(f);
+    }
+}
+
+fn carg(cmd: &mut Vec<String>, a: &str, guard: bool) {
+    if guard {
+        cmd.push(a.to_owned());
     }
 }
