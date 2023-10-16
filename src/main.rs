@@ -82,10 +82,10 @@ enum SubCmd {
     #[command(alias = "i")]
     Install {
         /// Packages to install.
-        #[arg(value_name = "PACKAGES")]
+        #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
         /// Reinstall packages that are already installed.
-        #[arg(short, long)]
+        #[arg(short, long, conflicts_with("download"))]
         reinstall: bool,
         /// Retrieve packages, but do not install them.
         #[arg(short, long)]
@@ -98,18 +98,24 @@ enum SubCmd {
     #[command(alias = "r")]
     Remove {
         /// Packages to remove.
-        #[arg(value_name = "PACKAGES")]
+        #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
         // TODO: Better naming
         /// Remove all packages that depend on the packages as well.
         #[arg(short, long)]
         cascade: bool,
         /// Keep orphaned dependencies.
-        #[arg(short = 'o', long)]
+        #[arg(short, long)]
         keep_orphans: bool,
-        /// Preserve configuration files.
-        #[arg(short = 'c', long)]
-        keep_configs: bool,
+        /// Ignore explicit marks on orphaned dependencies.
+        ///
+        /// Remove orphaned dependencies,
+        /// even if they are marked as explicitly installed.
+        #[arg(short, long, conflicts_with = "keep_orphans")]
+        explicit: bool,
+        /// Save configuration files.
+        #[arg(short, long)]
+        save: bool,
     },
 
     /// Refresh the sync database and upgrade packages.
@@ -142,15 +148,16 @@ enum SubCmd {
     #[command(alias = "s")]
     Search {
         /// Query regexes to search for.
-        #[arg(value_name = "REGEXES")]
+        #[arg(value_name = "REGEX")]
         queries: Vec<String>,
         /// Search in installed packages.
         #[arg(short, long)]
         local: bool,
+        // TODO: Regexes aren't used when searching for files.
         /// Search for packages that own the specified file(s).
         #[arg(short, long)]
         file: bool,
-        /// Do not use regex for filtering (files).
+        /// Do not use regex for filtering.
         #[arg(short, long, conflicts_with("local"))]
         exact: bool,
     },
@@ -183,14 +190,13 @@ enum SubCmd {
     #[command(alias = "v")]
     View {
         /// Packages to display information about.
-        #[arg(value_name = "PACKAGES")]
+        #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
         /// Query the sync database instead of installed packages.
         #[arg(
             short,
             long,
-            conflicts_with("package_file"),
-            conflicts_with("changelog")
+            conflicts_with_all(["package_file", "changelog"]),
         )]
         sync: bool,
         /// Query package files instead of installed packages.
@@ -242,7 +248,7 @@ enum SubCmd {
     #[command(alias = "p")]
     Pin {
         /// Packages to mark.
-        #[arg(value_name = "PACKAGES")]
+        #[arg(value_name = "PACKAGE")]
         packages: Vec<String>,
         /// Mark the packages as dependencies instead.
         #[arg(
@@ -283,14 +289,16 @@ impl SubCmd {
             }
             SubCmd::Remove {
                 packages,
-                keep_configs,
+                save,
+                explicit,
                 keep_orphans,
                 cascade,
             } => {
                 root = true;
                 cli.arg("-R", true);
-                cli.flag('n', !keep_configs);
+                cli.flag('n', !save);
                 cli.flag('s', !keep_orphans);
+                cli.flag('s', explicit);
                 cli.flag('c', cascade);
                 cli.args(packages);
             }
