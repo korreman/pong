@@ -171,13 +171,14 @@ enum SubCmd {
         /// Only list packages installed as dependencies.
         #[arg(short, long)]
         deps: bool,
+        // TODO: Better name.
         /// Only list packages not required by any installed packages.
         #[arg(short, long)]
         free: bool,
         /// Only list packages found in the sync database(s).
         #[arg(short, long, conflicts_with("no_sync"))]
         sync: bool,
-        // TODO: Better name for below.
+        // TODO: Better name.
         /// Only list packages not found in the sync database(s).
         #[arg(short, long)]
         no_sync: bool,
@@ -264,7 +265,6 @@ impl SubCmd {
     /// Generate the corresponding underlying command,
     /// and tell whether root user privileges are required to run it.
     fn generate_command(self, global: &GlobalOpts) -> (Vec<String>, bool) {
-        let mut root = false;
         let mut cli = Cli::new("pacman");
         cli.arg("--print", global.simulate);
         cli.arg("--debug", global.debug);
@@ -280,7 +280,7 @@ impl SubCmd {
                 reinstall,
                 download,
             } => {
-                root = true;
+                cli.root = true;
                 cli.arg("-S", true);
                 cli.flag('q', global.quiet);
                 cli.flag('w', download);
@@ -294,7 +294,7 @@ impl SubCmd {
                 keep_orphans,
                 cascade,
             } => {
-                root = true;
+                cli.root = true;
                 cli.arg("-R", true);
                 cli.flag('n', !save);
                 cli.flag('s', !keep_orphans);
@@ -307,7 +307,7 @@ impl SubCmd {
                 no_refresh,
                 refresh,
             } => {
-                root = true;
+                cli.root = true;
                 cli.arg("-S", true);
                 cli.flag('q', global.quiet);
                 cli.flag('w', download);
@@ -315,12 +315,12 @@ impl SubCmd {
                 cli.flag('u', !refresh);
             }
             SubCmd::Clean { all } => {
-                root = true;
+                cli.root = true;
                 cli.arg("-Sc", true);
                 cli.flag('c', all);
             }
             SubCmd::Pin { packages, remove } => {
-                root = true;
+                cli.root = true;
                 cli.arg("-D", true);
                 cli.flag('q', global.quiet);
                 cli.arg("--asexplicit", !remove);
@@ -390,8 +390,8 @@ impl SubCmd {
                 cli.flag('a', ascii);
                 cli.flag('c', color);
                 cli.flag('r', reverse);
-                if cli.0.last().unwrap() == "-" {
-                    cli.0.pop().unwrap();
+                if cli.cmd.last().unwrap() == "-" {
+                    cli.cmd.pop().unwrap();
                 }
 
                 cli.arg_opt("-d", &depth);
@@ -416,37 +416,43 @@ impl SubCmd {
                 cli.flag('u', upgrades);
             }
         }
-        (cli.0, root)
+        (cli.cmd, cli.root)
     }
 }
 
-struct Cli(Vec<String>);
+struct Cli {
+    cmd: Vec<String>,
+    root: bool,
+}
 
 impl Cli {
     fn new(base: &str) -> Self {
-        Self(vec![base.to_owned()])
+        Self {
+            cmd: vec![base.to_owned()],
+            root: false,
+        }
     }
 
     fn flag(&mut self, f: char, guard: bool) {
         if guard {
-            self.0.last_mut().unwrap().push(f);
+            self.cmd.last_mut().unwrap().push(f);
         }
     }
 
     fn arg(&mut self, a: &str, guard: bool) {
         if guard {
-            self.0.push(a.to_owned());
+            self.cmd.push(a.to_owned());
         }
     }
 
     fn arg_opt<T: std::fmt::Display>(&mut self, a: &str, value: &Option<T>) {
         if let Some(value) = value {
-            self.0.push(a.to_owned());
-            self.0.push(format!("{value}"));
+            self.cmd.push(a.to_owned());
+            self.cmd.push(format!("{value}"));
         }
     }
 
     fn args(&mut self, mut args: Vec<String>) {
-        self.0.append(&mut args);
+        self.cmd.append(&mut args);
     }
 }
