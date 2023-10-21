@@ -2,7 +2,7 @@ use std::os::unix::process::CommandExt;
 use std::process::{Command, ExitCode};
 
 use aur::{Aur, AurPassthrough};
-use clap::{Args, ColorChoice, Parser};
+use clap::{Args, ColorChoice, CommandFactory, Parser};
 use subcmd::SubCmd;
 
 mod aur;
@@ -20,7 +20,7 @@ struct Cmd {
     opts: GlobalOpts,
 
     #[command(subcommand)]
-    sub: SubCmd,
+    sub: Option<SubCmd>,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -64,7 +64,14 @@ struct GlobalOpts {
 
 fn main() -> ExitCode {
     let args = Cmd::parse();
-    let mut cli = args.sub.generate_command(&args.opts);
+    let Some(sub) = &args.sub else {
+        if Cmd::command().print_help().is_ok() {
+            return ExitCode::SUCCESS;
+        } else {
+            return ExitCode::FAILURE;
+        }
+    };
+    let mut cli = sub.clone().generate_command(&args.opts);
 
     if let (true, Some(helper)) = (cli.aur, args.opts.aur_helper) {
         AurPassthrough(helper.as_str()).transform(&mut cli);
