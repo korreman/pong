@@ -1,5 +1,3 @@
-__THIS TOOL IS IN DEVELOPMENT AND NOT READY FOR USE.__
-
 # pong
 
 A CLI wrapper that reorganizes `pacman` operations for more intuitive use.
@@ -34,16 +32,17 @@ The only current dependencies are the packages `pacman` and `pacman-contrib`.
 
 ## Roadmap
 
-[*] Basic user functionality.
-[ ] AUR helper support.
-    [*] Installation
-    [*] Removal
-    [*] Upgrade
-    [*] Cleaning
-    [*] Searching
-    [ ] AUR-specific operations
-    [ ] Listing
-    [ ] Viewing
-[ ] Completion
-    [ ] Command completion.
-    [ ] Content completion.
+- [x] Basic user functionality.
+- [ ] AUR helper support.
+    - [x] Installation
+    - [x] Removal
+    - [x] Upgrade
+    - [x] Cleaning
+    - [x] Searching
+    - [ ] AUR-specific operations
+    - [ ] Listing
+    - [ ] Viewing
+- [ ] Completion
+    - [ ] Command completion.
+    - [ ] Content completion.
+- [ ] ...
