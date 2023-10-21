@@ -27,24 +27,31 @@ struct GlobalOpts {
     /// Display debug messages.
     #[arg(short, long)]
     debug: bool,
+
     /// Simulate a test run without performing any changes.
     #[arg(short, long)]
     simulate: bool,
+
     /// Show less information for certain operations.
     #[arg(short, long)]
     quiet: bool,
+
     /// Never ask for confirmation.
     #[arg(short, long)]
     yes: bool,
+
     /// Colorize output.
     #[arg(short, long, value_enum)]
     color: Option<ColorChoice>,
+
     /// Specify an alternate configuration file.
     #[arg(long, value_name = "FILE")]
     config: Option<String>,
+
     /// Specify an alternate database location.
     #[arg(long, value_name = "DIR")]
     dbpath: Option<String>,
+
     /// Specify an alternate directory for GnuPG.
     #[arg(long, value_name = "DIR")]
     gpgdir: Option<String>,
