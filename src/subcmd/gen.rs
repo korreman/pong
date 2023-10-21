@@ -20,8 +20,10 @@ impl SubCmd {
                 packages,
                 reinstall,
                 download,
+                aur,
             } => {
                 cli.sudo = true;
+                cli.aur = aur;
                 cli.arg("-S", true);
                 cli.flag('q', global.quiet);
                 cli.flag('w', download);
@@ -34,8 +36,10 @@ impl SubCmd {
                 explicit,
                 keep_orphans,
                 cascade,
+                no_aur,
             } => {
                 cli.sudo = true;
+                cli.aur = !no_aur;
                 cli.arg("-R", true);
                 cli.flag('n', !save);
                 cli.flag('s', !keep_orphans);
@@ -47,16 +51,19 @@ impl SubCmd {
                 download,
                 no_refresh,
                 refresh,
+                no_aur,
             } => {
                 cli.sudo = true;
+                cli.aur = !no_aur;
                 cli.arg("-S", true);
                 cli.flag('q', global.quiet);
                 cli.flag('w', download);
                 cli.flag('y', !no_refresh);
                 cli.flag('u', !refresh);
             }
-            SubCmd::Clean { all } => {
+            SubCmd::Clean { all, no_aur } => {
                 cli.sudo = true;
+                cli.aur = !no_aur;
                 cli.arg("-Sc", true);
                 cli.flag('c', all);
             }
@@ -73,7 +80,9 @@ impl SubCmd {
                 file,
                 local,
                 exact,
+                aur,
             } => {
+                cli.aur = aur;
                 let arg = match (local, file, exact) {
                     (true, true, _) => "-Qo",
                     (true, false, _) => "-Qs",

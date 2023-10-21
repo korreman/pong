@@ -18,6 +18,9 @@ pub enum SubCmd {
         /// Retrieve packages, but do not install them.
         #[arg(short, long)]
         download: bool,
+        /// Install from the AUR in addition to official sources.
+        #[arg(short = 'u', long)]
+        aur: bool
     },
 
     /// Remove packages.
@@ -44,6 +47,9 @@ pub enum SubCmd {
         /// Save configuration files.
         #[arg(short, long)]
         save: bool,
+        /// Do not perform AUR-specific operations when removing AUR packages.
+        #[arg(long)]
+        no_aur: bool,
     },
 
     /// Refresh the sync database and upgrade packages.
@@ -59,6 +65,9 @@ pub enum SubCmd {
         /// Retrieve packages, but do not perform upgrades.
         #[arg(short, long)]
         download: bool,
+        /// Do not upgrade AUR packages.
+        #[arg(long)]
+        no_aur: bool,
     },
 
     /// Clean the package caches.
@@ -70,6 +79,9 @@ pub enum SubCmd {
         /// Also remove installed packages from the cache.
         #[arg(short, long)]
         all: bool,
+        /// Do not perform AUR-specific cleaning.
+        #[arg(long)]
+        no_aur: bool,
     },
 
     /// Search for a package.
@@ -88,6 +100,9 @@ pub enum SubCmd {
         /// Do not use regex for filtering.
         #[arg(short, long, conflicts_with("local"))]
         exact: bool,
+        /// Search the AUR along with official repositories.
+        #[arg(short = 'u', long)]
+        aur: bool
     },
 
     /// List installed packages.

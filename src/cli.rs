@@ -1,6 +1,7 @@
 pub struct Cli {
     pub cmd: Vec<String>,
     pub sudo: bool,
+    pub aur: bool,
 }
 
 impl Cli {
@@ -8,6 +9,7 @@ impl Cli {
         Self {
             cmd: vec![base.to_owned()],
             sudo: false,
+            aur: false,
         }
     }
 
