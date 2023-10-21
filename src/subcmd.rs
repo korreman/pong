@@ -92,13 +92,13 @@ pub enum SubCmd {
         queries: Vec<String>,
         /// Search in installed packages.
         #[arg(short, long)]
-        local: bool,
+        installed: bool,
         // TODO: Regexes aren't used when searching for files.
         /// Search for packages that own the specified file(s).
         #[arg(short, long)]
         file: bool,
         /// Do not use regex for filtering.
-        #[arg(short, long, conflicts_with("local"))]
+        #[arg(short, long, conflicts_with("installed"))]
         exact: bool,
         /// Search the AUR along with official repositories.
         #[arg(short = 'u', long)]

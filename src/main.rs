@@ -12,6 +12,7 @@ mod subcmd;
 #[derive(Debug, Clone, Parser)]
 #[command(author, version, about, max_term_width = 80)]
 struct Cmd {
+    // TODO: Better name.
     /// Print the underlying command without executing it.
     #[arg(short, long)]
     generate_command: bool,

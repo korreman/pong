@@ -78,12 +78,12 @@ impl SubCmd {
             SubCmd::Search {
                 queries,
                 file,
-                local,
+                installed,
                 exact,
                 aur,
             } => {
                 cli.aur = aur;
-                let arg = match (local, file, exact) {
+                let arg = match (installed, file, exact) {
                     (true, true, _) => "-Qo",
                     (true, false, _) => "-Qs",
                     (false, true, true) => "-F",

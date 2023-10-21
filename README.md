@@ -1,31 +1,49 @@
 __THIS TOOL IS IN DEVELOPMENT AND NOT READY FOR USE.__
 
 # pong
-A simplifying CLI-wrapper for Arch Linux package management.
 
-The package manager `pacman` is great at what it does.
-However, I cannot for the life of me remember how to tell it what to do.
-I'm sure that the CLI makes sense from some perspective,
-but I've decided to write a CLI wrapper that makes sense to me.
+A CLI wrapper that reorganizes `pacman` operations for more intuitive use.
 
-The goals for this wrapper are:
+`pacman` is a great and reliable package manager,
+but it is no secret that many find it difficult to use and memorize.
+Pages like the
+[`pacman` Rosetta](https://wiki.archlinux.org/title/Pacman/Rosetta)
+should be indication enough that it can be rather confusing.
 
-1. Memorability.
-It should be easy to commit commands and options to memory,
-even after using them only once.
-2. Discoverability.
-It should be easy to find the functionality you are looking for
-and to discover new functionality that you didn't know about.
-3. Good defaults.
-The correct, preferred, or common ways of using the tool shouldn't require any configuration.
-4. Safety.
-It should be difficult to accidentally perform unsafe actions.
-5. Anti-inconvenience.
-The tool should feel convenient,
-but not at the cost of other goals.
-Hence, it's more about it not being inconvenient to use.
+`pong` attempts to solve this by providing an intuitive flat set of commands for package management.
+Commands perform one type of action,
+and subsequent flags do not change the general action being performed.
+The same type of action is not spread across several commands.
+As an example, installation is done with `pong install` (or `pong i`),
+while searching is done with `pong search` (`pong s`).
+Searching through installed packages is done with `pong search --installed` (`pong s -i`).
 
+Alternatively, `pong` can be used as a lookup tool for `pacman`;
+passing the `-g/--generate` flag will make pong print the command
+that it was _going_ to run rather than run it.
+
+`pong` also supports AUR helpers.
+The default behavior is to dispatch to the AUR helper for most operations,
+but gate searching and installation behind a flag.
+This ensures that AUR packages are properly managed,
+while making the user aware when they install from the AUR.
 
 ## Dependencies
 
 The only current dependencies are the packages `pacman` and `pacman-contrib`.
+
+## Roadmap
+
+[*] Basic user functionality.
+[ ] AUR helper support.
+    [*] Installation
+    [*] Removal
+    [*] Upgrade
+    [*] Cleaning
+    [*] Searching
+    [ ] AUR-specific operations
+    [ ] Listing
+    [ ] Viewing
+[ ] Completion
+    [ ] Command completion.
+    [ ] Content completion.
