@@ -1,11 +1,11 @@
-use crate::{subcmd::SubCmd, GlobalOpts};
+use crate::{cli::Cli, subcmd::SubCmd, GlobalOpts};
 use clap::ColorChoice;
 use std::io::IsTerminal;
 
 impl SubCmd {
     /// Generate the corresponding underlying command,
     /// and tell whether root user privileges are required to run it.
-    pub(crate) fn generate_command(self, global: &GlobalOpts) -> (Vec<String>, bool) {
+    pub(crate) fn generate_command(self, global: &GlobalOpts) -> Cli {
         let mut cli = Cli::new("pacman");
         cli.arg("--print", global.simulate);
         cli.arg("--debug", global.debug);
@@ -21,7 +21,7 @@ impl SubCmd {
                 reinstall,
                 download,
             } => {
-                cli.root = true;
+                cli.sudo = true;
                 cli.arg("-S", true);
                 cli.flag('q', global.quiet);
                 cli.flag('w', download);
@@ -35,7 +35,7 @@ impl SubCmd {
                 keep_orphans,
                 cascade,
             } => {
-                cli.root = true;
+                cli.sudo = true;
                 cli.arg("-R", true);
                 cli.flag('n', !save);
                 cli.flag('s', !keep_orphans);
@@ -48,7 +48,7 @@ impl SubCmd {
                 no_refresh,
                 refresh,
             } => {
-                cli.root = true;
+                cli.sudo = true;
                 cli.arg("-S", true);
                 cli.flag('q', global.quiet);
                 cli.flag('w', download);
@@ -56,12 +56,12 @@ impl SubCmd {
                 cli.flag('u', !refresh);
             }
             SubCmd::Clean { all } => {
-                cli.root = true;
+                cli.sudo = true;
                 cli.arg("-Sc", true);
                 cli.flag('c', all);
             }
             SubCmd::Pin { packages, remove } => {
-                cli.root = true;
+                cli.sudo = true;
                 cli.arg("-D", true);
                 cli.flag('q', global.quiet);
                 cli.arg("--asexplicit", !remove);
@@ -157,43 +157,6 @@ impl SubCmd {
                 cli.flag('u', upgrades);
             }
         }
-        (cli.cmd, cli.root)
-    }
-}
-
-struct Cli {
-    cmd: Vec<String>,
-    root: bool,
-}
-
-impl Cli {
-    fn new(base: &str) -> Self {
-        Self {
-            cmd: vec![base.to_owned()],
-            root: false,
-        }
-    }
-
-    fn flag(&mut self, f: char, guard: bool) {
-        if guard {
-            self.cmd.last_mut().unwrap().push(f);
-        }
-    }
-
-    fn arg(&mut self, a: &str, guard: bool) {
-        if guard {
-            self.cmd.push(a.to_owned());
-        }
-    }
-
-    fn arg_opt<T: std::fmt::Display>(&mut self, a: &str, value: &Option<T>) {
-        if let Some(value) = value {
-            self.cmd.push(a.to_owned());
-            self.cmd.push(format!("{value}"));
-        }
-    }
-
-    fn args(&mut self, mut args: Vec<String>) {
-        self.cmd.append(&mut args);
+        cli
     }
 }

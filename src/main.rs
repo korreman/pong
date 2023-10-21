@@ -2,6 +2,7 @@ use std::os::unix::process::CommandExt;
 use std::process::{Command, ExitCode};
 
 mod subcmd;
+mod cli;
 #[cfg(test)]
 mod tests;
 
@@ -59,12 +60,12 @@ struct GlobalOpts {
 
 fn main() -> ExitCode {
     let args = Cmd::parse();
-    let (mut command, sudo) = args.sub.generate_command(&args.opts);
+    let mut cli = args.sub.generate_command(&args.opts);
     if args.generate_command {
-        println!("{}", command.join(" "));
+        println!("{}", cli.cmd.join(" "));
         ExitCode::SUCCESS
     } else {
-        if sudo {
+        if cli.sudo {
             match sudo::escalate_if_needed() {
                 Ok(sudo::RunningAs::Root) | Ok(sudo::RunningAs::Suid) => (),
                 _ => {
@@ -73,8 +74,8 @@ fn main() -> ExitCode {
                 }
             }
         }
-        let mut process = Command::new(command.remove(0));
-        for arg in &command {
+        let mut process = Command::new(cli.cmd.remove(0));
+        for arg in &cli.cmd{
             process.arg(arg);
         }
         process.exec();
