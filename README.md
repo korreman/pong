@@ -11,7 +11,7 @@ should be indication enough that people find it rather confusing.
 `pong` attempts to solve this by providing an intuitive flat set of commands for package management.
 Commands perform one type of action,
 and subsequent flags do not change the general action being performed.
-The same type of action is not spread across several commands.
+Similarly, the same type of action is not spread across several commands.
 
 Alternatively, `pong` can be used as a lookup tool for `pacman`;
 passing the `-g/--generate` flag will make pong print the command
