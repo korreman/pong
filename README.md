@@ -4,9 +4,9 @@ A CLI wrapper that reorganizes `pacman` operations for more intuitive use.
 
 `pacman` is a great and reliable package manager,
 but it is no secret that many find it difficult to use and memorize.
-Pages like the
+The existence of the
 [`pacman` Rosetta](https://wiki.archlinux.org/title/Pacman/Rosetta)
-should be indication enough that people find it rather confusing.
+and the wealth of questions and discussions on proper `pacman` usage serves as an indication of this.
 
 `pong` attempts to solve this by providing an intuitive flat set of commands for package management.
 Commands perform one type of action,
