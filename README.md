@@ -33,6 +33,7 @@ The current commands are:
 - `clean`: Clean the package caches
 - `search`: Search for a package
 - `list`: List installed packages
+- `which`: Search for packages that own files
 - `view`: Display various information about packages
 - `tree`: Show the dependency tree of a package
 - `pin`: Mark/unmark packages as explicitly installed
