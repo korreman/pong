@@ -19,9 +19,9 @@ that it was _going_ to run rather than run it.
 
 `pong` also supports AUR helpers through the `--aur-helper` parameter.
 Upkeep operations will be dispatched to the helper,
-while search and installation are gated behind a flag.
+while AUR search and installation are gated behind a flag.
 This ensures that AUR packages are properly managed,
-but AUR packages aren't installed unintentionally.
+but users are aware of whether packages are from the AUR.
 
 ## Commands
 
