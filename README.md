@@ -17,11 +17,11 @@ Alternatively, `pong` can be used as a lookup tool for `pacman`;
 passing the `-g/--generate` flag will make pong print the command
 that it was _going_ to run rather than run it.
 
-`pong` also supports AUR helpers.
-Its default behavior is to dispatch to the AUR helper for most operations,
-but gate searching and installation behind a flag.
+`pong` also supports AUR helpers through the `--aur-helper` parameter.
+Upkeep operations will be dispatched to the helper,
+while search and installation are gated behind a flag.
 This ensures that AUR packages are properly managed,
-while making the user aware when they install from the AUR.
+but AUR packages aren't installed unintentionally.
 
 ## Commands
 
