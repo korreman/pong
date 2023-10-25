@@ -133,7 +133,7 @@ pub enum SubCmd {
         #[arg(short, long)]
         sync: bool,
         /// Include packages from the AUR (implies --sync).
-        #[arg(short = 'u', implies("sync"))]
+        #[arg(short = 'u', requires("sync"))]
         aur: bool,
         /// Use a regex for filtering (requires --sync).
         #[arg(short = 'x', long, requires("sync"))]
