@@ -77,22 +77,26 @@ impl SubCmd {
             }
             SubCmd::Search {
                 queries,
-                file,
                 installed,
-                exact,
                 aur,
             } => {
                 cli.aur = aur;
-                let arg = match (installed, file, exact) {
-                    (true, true, _) => "-Qo",
-                    (true, false, _) => "-Qs",
-                    (false, true, true) => "-F",
-                    (false, true, false) => "-Fx",
-                    (false, false, _) => "-Ss",
-                };
-                cli.arg(arg, true);
+                cli.arg("-Ss", !installed);
+                cli.arg("-Qs", installed);
                 cli.flag('q', global.quiet);
                 cli.args(queries);
+            }
+            SubCmd::Which {
+                files,
+                sync,
+                aur,
+                regex,
+            } => {
+                cli.aur = aur;
+                cli.arg("-Qo", !sync);
+                cli.arg("-F", sync);
+                cli.flag('x', regex);
+                cli.args(files);
             }
             SubCmd::View {
                 packages,

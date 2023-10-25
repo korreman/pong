@@ -93,13 +93,6 @@ pub enum SubCmd {
         /// Search in installed packages.
         #[arg(short, long)]
         installed: bool,
-        // TODO: Regexes aren't used when searching for files.
-        /// Search for packages that own the specified file(s).
-        #[arg(short, long)]
-        file: bool,
-        /// Do not use regex for filtering.
-        #[arg(short, long, conflicts_with("installed"))]
-        exact: bool,
         /// Search the AUR along with official repositories.
         #[arg(short = 'u', long)]
         aur: bool
@@ -130,6 +123,22 @@ pub enum SubCmd {
         upgrades: bool,
     },
 
+    /// Search for packages that own files.
+    #[command(alias = "w")]
+    Which {
+        /// Files to search for.
+        #[arg(value_name = "FILE")]
+        files: Vec<String>,
+        /// Search through the sync database(s).
+        #[arg(short, long)]
+        sync: bool,
+        /// Include packages from the AUR (implies --sync).
+        #[arg(short = 'u', requires("sync"))]
+        aur: bool,
+        /// Use a regex for filtering (requires --sync).
+        #[arg(short = 'x', long, requires("sync"))]
+        regex: bool,
+    },
     /// Display various information about packages.
     #[command(alias = "v")]
     View {
