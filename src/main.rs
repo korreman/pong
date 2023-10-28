@@ -10,7 +10,13 @@ mod cli;
 mod subcmd;
 
 #[derive(Debug, Clone, Parser)]
-#[command(author, version, about, max_term_width = 80)]
+#[command(
+    author,
+    version,
+    about,
+    max_term_width = 80,
+    disable_version_flag = true
+)]
 struct Cmd {
     // TODO: Better name.
     /// Print the underlying command without executing it.
@@ -61,6 +67,10 @@ struct GlobalOpts {
     /// Specify an AUR helper to dispatch AUR commands to.
     #[arg(long, value_name = "CMD")]
     aur_helper: Option<String>,
+
+    /// Print version
+    #[arg(short = 'v', short_alias = 'V', long, action = clap::builder::ArgAction::Version)]
+    version: (),
 }
 
 fn main() -> ExitCode {

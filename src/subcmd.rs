@@ -123,7 +123,7 @@ pub enum SubCmd {
         upgrades: bool,
     },
 
-    /// Search for packages that own files.
+    /// Find packages that own files.
     #[command(alias = "w")]
     Which {
         /// Files to search for.
