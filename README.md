@@ -4,18 +4,17 @@ A CLI wrapper that reorganizes `pacman` operations for more intuitive use.
 
 `pacman` is a great and reliable package manager,
 but it is no secret that many find it difficult to use and memorize.
-The existence of the
-[`pacman` Rosetta](https://wiki.archlinux.org/title/Pacman/Rosetta)
-and the wealth of questions and discussions on proper `pacman` usage serves as an indication of this.
+`pong` attempts to solve this
+by providing an intuitive flat set of commands for package management.
 
-`pong` attempts to solve this by providing an intuitive flat set of commands for package management.
-Commands perform one type of action,
+Commands perform only one type of action,
 and subsequent flags do not change the general action being performed.
-Similarly, the same type of action is not spread across several commands.
+Additionally, variations of the same action are not spread across several commands.
 
-Alternatively, `pong` can be used as a lookup tool for `pacman`;
-passing the `-g/--generate` flag will make pong print the command
-that it was _going_ to run rather than run it.
+`pong` emphasizes discoverability.
+It self-documents with both brief and long descriptions for all commands.
+Simply run `pong` with no subcommand to show the overview,
+then run `pong [cmd] -h`/`pong [cmd] --help` to show the short/long help for a given command.
 
 `pong` also supports AUR helpers through the `--aur-helper` parameter.
 Upkeep operations will be dispatched to the helper,
@@ -27,16 +26,16 @@ but users are aware of whether packages are from the AUR.
 
 The current commands are:
 
-- `install`: Install packages
-- `remove`: Remove packages
-- `upgrade`: Refresh the sync database and upgrade packages
-- `clean`: Clean the package caches
-- `search`: Search for a package
-- `list`: List installed packages
-- `which`: Search for packages that own files
-- `view`: Display various information about packages
-- `tree`: Show the dependency tree of a package
-- `pin`: Mark/unmark packages as explicitly installed
+- `i`/`install`: Install packages
+- `r`/`remove`: Remove packages
+- `u`/`upgrade`: Refresh the sync database and upgrade packages
+- `c`/`clean`: Clean the package caches
+- `s`/`search`: Search for a package
+- `l`/`list`: List installed packages
+- `w`/`which`: Search for packages that own files
+- `v`/`view`: Display various information about packages
+- `t`/`tree`: Show the dependency tree of a package
+- `t`/`pin`: Mark/unmark packages as explicitly installed
 - `help`: Print this message or the help of the given subcommand(s)
 
 ## Dependencies
