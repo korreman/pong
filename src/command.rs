@@ -1,6 +1,68 @@
-use clap::Subcommand;
+use clap::{Args, ColorChoice, Parser, Subcommand};
 
-mod gen;
+#[derive(Debug, Clone, Parser)]
+#[command(
+    author,
+    version,
+    about,
+    max_term_width = 80,
+    disable_version_flag = true
+)]
+pub struct Cmd {
+    // TODO: Better name.
+    /// Print the underlying command without executing it.
+    #[arg(short, long)]
+    pub generate_command: bool,
+
+    #[command(flatten)]
+    pub opts: GlobalOpts,
+
+    #[command(subcommand)]
+    pub sub: Option<SubCmd>,
+}
+
+#[derive(Debug, Clone, Args)]
+pub struct GlobalOpts {
+    /// Display debug messages.
+    #[arg(short, long)]
+    pub debug: bool,
+
+    /// Simulate a test run without performing any changes.
+    #[arg(short, long)]
+    pub simulate: bool,
+
+    /// Show less information for certain operations.
+    #[arg(short, long)]
+    pub quiet: bool,
+
+    /// Never ask for confirmation.
+    #[arg(short, long)]
+    pub yes: bool,
+
+    /// Colorize output.
+    #[arg(short, long, value_enum)]
+    pub color: Option<ColorChoice>,
+
+    /// Specify an alternate configuration file.
+    #[arg(long, value_name = "FILE")]
+    pub config: Option<String>,
+
+    /// Specify an alternate database location.
+    #[arg(long, value_name = "DIR")]
+    pub dbpath: Option<String>,
+
+    /// Specify an alternate directory for GnuPG.
+    #[arg(long, value_name = "DIR")]
+    pub gpgdir: Option<String>,
+
+    /// Specify an AUR helper to dispatch AUR commands to.
+    #[arg(long, value_name = "CMD")]
+    pub aur_helper: Option<String>,
+
+    /// Print version
+    #[arg(short = 'v', short_alias = 'V', long, action = clap::builder::ArgAction::Version)]
+    pub version: (),
+}
 
 #[derive(Debug, Clone, Subcommand)]
 pub enum SubCmd {

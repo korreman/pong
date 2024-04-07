@@ -1,4 +1,4 @@
-use crate::cli::Cli;
+use crate::builder::Cli;
 
 pub trait Aur {
     fn transform(&self, cli: &mut Cli);
